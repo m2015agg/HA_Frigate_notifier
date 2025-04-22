@@ -178,7 +178,7 @@ action:
         Payload: {{ payload }}
 
   # Send mobile notification with context-aware message
-  - service: notify.mobile_app
+  - service: notify.notify
     data:
       message: >
         {% if loiter_cross %}
