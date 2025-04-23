@@ -73,19 +73,23 @@ blueprint:
 
     # Zone-specific loitering settings
     zone_settings:
-      name: Zone Settings (YAML)
-      description: >-
-        Optional YAML configuration for zone-specific loitering times. Example:
-        street:
-          loitering_time: 15
-        Yard:
-          loitering_time: 0
-        Garage_Zone:
-          loitering_time: 5
-      default: ""
+      name: Zone Settings
+      description: Configure loitering times for each zone
       selector:
-        text:
-          multiline: true
+        object:
+          multiple: true
+          custom_value: true
+          options:
+            - label: Street
+              value: street
+            - label: Yard
+              value: Yard
+            - label: Garage Zone
+              value: Garage_Zone
+          custom_value_label: "Add Custom Zone"
+          custom_value_placeholder: "Zone Name"
+          value_label: "Loiter Time (seconds)"
+          value_placeholder: "0"
 
 # Run automation in single mode (one instance at a time)
 mode: single
@@ -125,7 +129,13 @@ variables:
   # Parse zone settings
   zone_config: >-
     {% if zone_settings %}
-      {{ zone_settings | from_yaml }}
+      {% set config = namespace(data={}) %}
+      {% for zone in zone_settings %}
+        {% if zone.value | int(0) >= 0 %}
+          {% set _ = config.data.update({zone.label: {'loitering_time': zone.value | int}}) %}
+        {% endif %}
+      {% endfor %}
+      {{ config.data }}
     {% else %}
       {{ {} }}
     {% endif %}
@@ -137,7 +147,7 @@ variables:
   loiter_cross: >-
     {% set zone_time = namespace(value=loiter_threshold) %}
     {% for zone in current_zones %}
-      {% if zone in zone_config and 'loitering_time' in zone_config[zone] %}
+      {% if zone in zone_config %}
         {% set zone_time.value = zone_config[zone].loitering_time %}
       {% endif %}
     {% endfor %}
@@ -172,8 +182,10 @@ action:
       name: Frigate Motion Watcher
       message: >
         Event from {{ camera_id }} — 
-        Loiter: {{ status }} ({{ duration }}s/{{ loiter_threshold }}s) — 
+        Loiter: {{ status }} ({{ duration }}s/{{ zone_time.value }}s) — 
         Motionless: {{ duration }}s/{{ motionless_threshold }}s — 
+        Zones: {{ current_zones }} —
+        Zone Config: {{ zone_config }} —
         Notify: {{ should_notify }} - 
         Payload: {{ payload }}
 
