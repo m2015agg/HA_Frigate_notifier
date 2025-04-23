@@ -187,6 +187,9 @@ action:
         Loiter: {{ status }} ({{ duration }}s/{{ loiter_threshold }}s) — 
         Motionless: {{ duration }}s/{{ motionless_threshold }}s — 
         Notify: {{ should_notify }} - 
+        Alert Once: {{ alert_once }} -
+        Event ID: {{ event_id }} -
+        Seen Events: {{ state_attr('input_text.frigate_notified_events','value') | default('none') }} -
         Payload: {{ payload }}
 
   # Send mobile notification with context-aware message
@@ -212,4 +215,5 @@ action:
       # Keep only the last 100 events to prevent the list from growing too large
       value: >-
         {% set seen = (state_attr('input_text.frigate_notified_events','value') | default('', true)).split(',') %}
-        {{ (seen + [event_id])[-100:] | join(',') }}
+        {% set new_value = (seen + [event_id])[-100:] | join(',') %}
+        {{ new_value }}
