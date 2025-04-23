@@ -104,48 +104,13 @@ variables:
   zone_settings: !input zone_settings
   
   # Extract data from the MQTT payload
-  payload: >-
-    {% if trigger.payload_json is defined %}
-      {{ trigger.payload_json }}
-    {% elif trigger.payload is defined and trigger.payload %}
-      {{ trigger.payload | from_json }}
-    {% else %}
-      {{ {
-        'after': {
-          'id': 'test-' ~ now() | timestamp,
-          'camera': 'FrontYard',
-          'current_zones': ['street'],
-          'pending_loitering': true,
-          'motionless_count': 2
-        }
-      } }}
-    {% endif %}
-  event_id: >-
-    {% if payload.after is defined %}
-      {{ payload.after.id }}
-    {% else %}
-      {{ payload.id }}
-    {% endif %}
+  payload: "{{ trigger.payload_json }}"
+  event_id: "{{ payload.after.id }}"
   # Check if Frigate has flagged this as loitering
-  status: >-
-    {% if payload.after is defined %}
-      {{ payload.after.pending_loitering }}
-    {% else %}
-      {{ payload.pending_loitering }}
-    {% endif %}
+  status: "{{ payload.after.pending_loitering }}"
   # Get how long the object has been motionless
-  duration: >-
-    {% if payload.after is defined %}
-      {{ payload.after.motionless_count }}
-    {% else %}
-      {{ payload.motionless_count }}
-    {% endif %}
-  camera_id: >-
-    {% if payload.after is defined %}
-      {{ payload.after.camera }}
-    {% else %}
-      {{ payload.camera }}
-    {% endif %}
+  duration: "{{ payload.after.motionless_count }}"
+  camera_id: "{{ payload.after.camera }}"
   
   # Get input variables
   cameras: !input cameras
@@ -182,12 +147,7 @@ variables:
     {% endif %}
 
   # Get the current zones the object is in
-  current_zones: >-
-    {% if payload.after is defined %}
-      {{ payload.after.current_zones }}
-    {% else %}
-      {{ payload.current_zones }}
-    {% endif %}
+  current_zones: "{{ payload.after.current_zones }}"
   
   # Check if we've hit the loitering threshold
   loiter_cross: >-
