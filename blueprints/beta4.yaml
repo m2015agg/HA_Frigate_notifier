@@ -74,7 +74,7 @@ blueprint:
     # Zone-specific loitering settings
     zone_settings:
       name: Zone Settings
-      description: Configure loitering times for each zone (format: zone_name: seconds)
+      description: "Configure loitering times for each zone (format: zone_name: seconds)"
       default: "street: 1\nYard: 0\nGarage_Zone: 5"
       selector:
         text:
