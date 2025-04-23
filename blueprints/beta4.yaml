@@ -136,7 +136,7 @@ variables:
             {% set zone = parts[0] | trim %}
             {% set value = parts[1] | trim %}
             {% if value | int(0) >= 0 %}
-              {% set _ = config.update({zone: {'loitering_time': value | int}}) %}
+              {% set config = config + {zone: {'loitering_time': value | int}} %}
             {% endif %}
           {% endif %}
         {% endif %}
