@@ -183,7 +183,13 @@ action:
   - service: logbook.log
     data:
       name: Frigate Motion Watcher
-      message: >
+      message: >-
+        {% set zone_time = namespace(value=loiter_threshold) %}
+        {% for zone in current_zones %}
+          {% if zone in zone_config %}
+            {% set zone_time.value = zone_config[zone].loitering_time %}
+          {% endif %}
+        {% endfor %}
         Event from {{ camera_id }} — 
         Loiter: {{ status }} ({{ duration }}s/{{ zone_time.value }}s) — 
         Motionless: {{ duration }}s/{{ motionless_threshold }}s — 
@@ -196,7 +202,7 @@ action:
   # Send mobile notification with context-aware message
   - service: notify.notify
     data:
-      message: >
+      message: >-
         {% if loiter_cross %}
           Loitering detected on {{ camera_id }} - Object loitering for {{ duration }}s.
         {% else %}
