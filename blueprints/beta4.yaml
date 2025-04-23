@@ -73,9 +73,16 @@ blueprint:
 
     # Zone-specific loitering settings
     zone_settings:
-      name: Zone Settings
-      description: "Configure loitering times for each zone (format: zone_name: seconds)"
-      default: "street: 1\nYard: 0\nGarage_Zone: 5"
+      name: Zone Settings (YAML)
+      description: >-
+        Optional YAML configuration for zone-specific loitering times. Example:
+        street:
+          loitering_time: 15
+        Yard:
+          loitering_time: 0
+        Garage_Zone:
+          loitering_time: 5
+      default: ""
       selector:
         text:
           multiline: true
@@ -118,20 +125,7 @@ variables:
   # Parse zone settings
   zone_config: >-
     {% if zone_settings %}
-      {% set config = namespace(data={}) %}
-      {% for line in zone_settings.split('\n') %}
-        {% if ':' in line %}
-          {% set parts = line.split(':') %}
-          {% if parts | length == 2 %}
-            {% set zone = parts[0] | trim %}
-            {% set value = parts[1] | trim %}
-            {% if value | int(0) >= 0 %}
-              {% set _ = config.data.update({zone: {'loitering_time': value | int}}) %}
-            {% endif %}
-          {% endif %}
-        {% endif %}
-      {% endfor %}
-      {{ config.data }}
+      {{ zone_settings | from_yaml }}
     {% else %}
       {{ {} }}
     {% endif %}
@@ -143,7 +137,7 @@ variables:
   loiter_cross: >-
     {% set zone_time = namespace(value=loiter_threshold) %}
     {% for zone in current_zones %}
-      {% if zone in zone_config %}
+      {% if zone in zone_config and 'loitering_time' in zone_config[zone] %}
         {% set zone_time.value = zone_config[zone].loitering_time %}
       {% endif %}
     {% endfor %}
@@ -178,10 +172,8 @@ action:
       name: Frigate Motion Watcher
       message: >
         Event from {{ camera_id }} — 
-        Loiter: {{ status }} ({{ duration }}s/{{ zone_time.value }}s) — 
+        Loiter: {{ status }} ({{ duration }}s/{{ loiter_threshold }}s) — 
         Motionless: {{ duration }}s/{{ motionless_threshold }}s — 
-        Zones: {{ current_zones }} —
-        Zone Config: {{ zone_config }} —
         Notify: {{ should_notify }} - 
         Payload: {{ payload }}
 
