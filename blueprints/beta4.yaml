@@ -185,8 +185,11 @@ action:
       name: Frigate Motion Watcher
       message: >
         Event from {{ camera_id }} — 
-        Loiter: {{ status }} ({{ duration }}s/{{ loiter_threshold }}s) — 
+        Loiter: {{ status }} ({{ duration }}s/{{ zone_time.value }}s) — 
         Motionless: {{ duration }}s/{{ motionless_threshold }}s — 
+        Zones: {{ current_zones }} —
+        Zone Config: {{ zone_config }} —
+        Zone Settings: {{ zone_settings }} —
         Notify: {{ should_notify }} - 
         Payload: {{ payload }}
 
