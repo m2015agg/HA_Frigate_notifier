@@ -24,7 +24,6 @@ blueprint:
       selector:
         device:
           integration: mobile_app
-          multiple: true
 
     # Threshold for Frigate's built-in loitering detection
     loiter_threshold:
