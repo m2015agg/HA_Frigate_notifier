@@ -193,7 +193,7 @@ action:
   # Send mobile notification with context-aware message
   - service: notify.notify
     target:
-      device_ids: "{{ notify_device }}"
+      device_id: "{{ notify_device }}"
     data:
       message: >
         {% if loiter_cross %}
