@@ -96,12 +96,12 @@ trigger:
   id: frigate-event
   value_template: "{{ value_json.type in ['new','update', 'end'] }}"
 
-
 # Variables used in the automation
 variables:
   # Extract data from the MQTT payload
   payload: "{{ trigger.payload_json }}"
-  event_id: "{{ payload.after.id }}"
+  full_event_id: "{{ payload.after.id }}"
+  event_id: "{{ payload.after.id[-5:] if payload.after.id is string else '' }}"
   # Check if Frigate has flagged this as loitering
   status: "{{ payload.after.pending_loitering }}"
   # Get how long the object has been motionless
@@ -166,8 +166,10 @@ variables:
 
   # Check if we've already notified for this event
   already_notified: >-
-    {% set seen = (state_attr('input_text.frigate_notified_events','value') | default('', true)).split(',') %}
-    {{ event_id in seen if seen else false }}
+    {% set current = state_attr('input_text.frigate_notified_events','value') | default('') %}
+    {% set seen = current.split(',') if current else [] %}
+    {% set cleaned = seen | select('ne', '') | list %}
+    {{ event_id in cleaned if cleaned else false }}
 
 # Conditions that must be met to trigger the action
 condition:
@@ -210,16 +212,18 @@ action:
       {% endif %}
     data:
       tag: "{{ event_id }}"
-      image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ event_id }}/snapshot.jpg"
-      clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ event_id }}/clip.mp4"
+      image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
+      clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
 
   # Update the list of seen events to prevent duplicates
   - service: input_text.set_value
     target:
       entity_id: input_text.frigate_notified_events
     data:
-      # Keep only the last 100 events to prevent the list from growing too large
       value: >-
-        {% set seen = (state_attr('input_text.frigate_notified_events','value') | default('', true)).split(',') %}
-        {% set new_value = (seen + [event_id])[-100:] | join(',') %}
-        {{ new_value }}
+        {% set current = state_attr('input_text.frigate_notified_events','value') | default('') %}
+        {% set seen = current.split(',') if current else [] %}
+        {% set cleaned = seen | select('ne', '') | list %}
+        {% set new_value = cleaned + [event_id] %}
+        {% set final = new_value[-20:] | join(',') if new_value else event_id %}
+        {{ final }}
