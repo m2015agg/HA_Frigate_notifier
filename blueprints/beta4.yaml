@@ -74,22 +74,11 @@ blueprint:
     # Zone-specific loitering settings
     zone_settings:
       name: Zone Settings
-      description: Configure loitering times for each zone
+      description: Configure loitering times for each zone (format: zone_name: seconds)
+      default: "street: 1\nYard: 0\nGarage_Zone: 5"
       selector:
-        object:
-          multiple: true
-          custom_value: true
-          options:
-            - label: Street
-              value: street
-            - label: Yard
-              value: Yard
-            - label: Garage Zone
-              value: Garage_Zone
-          custom_value_label: "Add Custom Zone"
-          custom_value_placeholder: "Zone Name"
-          value_label: "Loiter Time (seconds)"
-          value_placeholder: "0"
+        text:
+          multiline: true
 
 # Run automation in single mode (one instance at a time)
 mode: single
@@ -130,9 +119,16 @@ variables:
   zone_config: >-
     {% if zone_settings %}
       {% set config = namespace(data={}) %}
-      {% for zone in zone_settings %}
-        {% if zone.value | int(0) >= 0 %}
-          {% set _ = config.data.update({zone.label: {'loitering_time': zone.value | int}}) %}
+      {% for line in zone_settings.split('\n') %}
+        {% if ':' in line %}
+          {% set parts = line.split(':') %}
+          {% if parts | length == 2 %}
+            {% set zone = parts[0] | trim %}
+            {% set value = parts[1] | trim %}
+            {% if value | int(0) >= 0 %}
+              {% set _ = config.data.update({zone: {'loitering_time': value | int}}) %}
+            {% endif %}
+          {% endif %}
         {% endif %}
       {% endfor %}
       {{ config.data }}
