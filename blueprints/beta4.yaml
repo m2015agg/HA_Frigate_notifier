@@ -100,9 +100,6 @@ trigger:
 
 # Variables used in the automation
 variables:
-  # Initialize zone settings
-  zone_settings: !input zone_settings
-  
   # Extract data from the MQTT payload
   payload: "{{ trigger.payload_json }}"
   event_id: "{{ payload.after.id }}"
@@ -127,8 +124,8 @@ variables:
   
   # Parse zone settings
   zone_config: >-
-    {% if zone_settings is defined and zone_settings %}
-      {% set config = {} %}
+    {% if zone_settings %}
+      {% set config = namespace(data={}) %}
       {% for line in zone_settings.split('\n') %}
         {% if ':' in line %}
           {% set parts = line.split(':') %}
@@ -136,16 +133,16 @@ variables:
             {% set zone = parts[0] | trim %}
             {% set value = parts[1] | trim %}
             {% if value | int(0) >= 0 %}
-              {% set config = config + {zone: {'loitering_time': value | int}} %}
+              {% set _ = config.data.update({zone: {'loitering_time': value | int}}) %}
             {% endif %}
           {% endif %}
         {% endif %}
       {% endfor %}
-      {{ config }}
+      {{ config.data }}
     {% else %}
       {{ {} }}
     {% endif %}
-
+  
   # Get the current zones the object is in
   current_zones: "{{ payload.after.current_zones }}"
   
@@ -186,26 +183,17 @@ action:
   - service: logbook.log
     data:
       name: Frigate Motion Watcher
-      message: >-
-        {% set zone_time = namespace(value=loiter_threshold) %}
-        {% for zone in current_zones %}
-          {% if zone in zone_config %}
-            {% set zone_time.value = zone_config[zone].loitering_time %}
-          {% endif %}
-        {% endfor %}
+      message: >
         Event from {{ camera_id }} — 
-        Loiter: {{ status }} ({{ duration }}s/{{ zone_time.value }}s) — 
+        Loiter: {{ status }} ({{ duration }}s/{{ loiter_threshold }}s) — 
         Motionless: {{ duration }}s/{{ motionless_threshold }}s — 
-        Zones: {{ current_zones }} —
-        Zone Config: {{ zone_config }} —
-        Zone Settings: {{ zone_settings | default('none') }} —
         Notify: {{ should_notify }} - 
         Payload: {{ payload }}
 
   # Send mobile notification with context-aware message
   - service: notify.notify
     data:
-      message: >-
+      message: >
         {% if loiter_cross %}
           Loitering detected on {{ camera_id }} - Object loitering for {{ duration }}s.
         {% else %}
