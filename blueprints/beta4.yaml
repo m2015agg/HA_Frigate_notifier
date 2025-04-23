@@ -114,6 +114,7 @@ variables:
   loiter_threshold: !input loiter_threshold
   motionless_threshold: !input motionless_threshold
   base_url: !input base_url
+  alert_once: !input alert_once
   
   # Check if the camera is one we're monitoring
   is_watched_camera: >-
@@ -163,6 +164,11 @@ variables:
   should_notify: >-
     {{ (loiter_cross or motionless_cross) }}
 
+  # Check if we've already notified for this event
+  already_notified: >-
+    {% set seen = (state_attr('input_text.frigate_notified_events','value') | default('', true)).split(',') %}
+    {{ event_id in seen if seen else false }}
+
 # Conditions that must be met to trigger the action
 condition:
   # Only notify for watched cameras and when thresholds are met
@@ -173,8 +179,7 @@ condition:
   # Prevent duplicate notifications using a list of seen events
   - condition: template
     value_template: >-
-      {% set seen = states('input_text.frigate_notified_events') | default('') %}
-      {{ not (event_id in (seen | default('')).split(',') if seen else false) }}
+      {{ not (alert_once and already_notified) }}
 
 # Actions to perform when conditions are met
 action:
@@ -189,6 +194,7 @@ action:
         Notify: {{ should_notify }} - 
         Alert Once: {{ alert_once }} -
         Event ID: {{ event_id }} -
+        Already Notified: {{ already_notified }} -
         Seen Events: {{ state_attr('input_text.frigate_notified_events','value') | default('none') }} -
         Payload: {{ payload }}
 
