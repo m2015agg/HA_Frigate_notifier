@@ -124,7 +124,7 @@ variables:
   
   # Parse zone settings
   zone_config: >-
-    {% if zone_settings %}
+    {% if zone_settings is defined and zone_settings %}
       {% set config = namespace(data={}) %}
       {% for line in zone_settings.split('\n') %}
         {% if ':' in line %}
@@ -189,7 +189,7 @@ action:
         Motionless: {{ duration }}s/{{ motionless_threshold }}s — 
         Zones: {{ current_zones }} —
         Zone Config: {{ zone_config }} —
-        Zone Settings: {{ zone_settings }} —
+        Zone Settings: {{ zone_settings | default('none') }} —
         Notify: {{ should_notify }} - 
         Payload: {{ payload }}
 
