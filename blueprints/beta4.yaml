@@ -191,8 +191,6 @@ action:
 
   # Send mobile notification with context-aware message
   - service: notify.notify
-    target:
-      device_id: "{{ notify_device }}"
     data:
       message: >
         {% if loiter_cross %}
@@ -204,6 +202,7 @@ action:
         tag: "{{ event_id }}"
         image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ event_id }}/snapshot.jpg"
         clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ event_id }}/clip.mp4"
+      device_id: "{{ notify_device }}"
 
   # Update the list of seen events to prevent duplicates
   - service: input_text.set_value
