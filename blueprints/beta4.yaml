@@ -50,17 +50,6 @@ blueprint:
           max: 3600
           unit_of_measurement: seconds
 
-    # Threshold for raw motionless duration
-    motionless_threshold:
-      name: Motionless Threshold (seconds)
-      description: Seconds an object must remain still to notify
-      default: 30
-      selector:
-        number:
-          min: 0
-          max: 3600
-          unit_of_measurement: seconds
-
     mqtt_topic:
       name: MQTT Topic
       description: Topic where Frigate publishes detection events (usually frigate/events).
@@ -146,7 +135,6 @@ variables:
   notify_device: !input notify_device
   loiter_threshold: !input loiter_threshold
   max_loiter_time: !input max_loiter_time
-  motionless_threshold: !input motionless_threshold
   base_url: !input base_url
   zone_settings: !input zone_settings
   timeout: !input timeout
@@ -192,13 +180,9 @@ variables:
     {% endfor %}
     {{ duration >= threshold and (max_loiter_time == 0 or duration <= max_loiter_time) }}
 
-  # Check if we've hit the motionless threshold
-  motionless_cross: >-
-    {{ duration >= motionless_threshold }}
-  
   # Combine both conditions - notify if either is true
   should_notify: >-
-    {{ (loiter_cross or motionless_cross) and not update_type == 'end' }}
+    {{ loiter_cross and not update_type == 'end' }}
 
 # Conditions that must be met to trigger the action
 condition:
@@ -226,7 +210,6 @@ action:
         - Camera: {{ camera_id }}
         - Current Zones: {{ current_zones }}
         - Loiter Cross: {{ loiter_cross }}
-        - Motionless Cross: {{ motionless_cross }}
         - Should Notify: {{ should_notify }}
         - Zone Settings Input: {{ zone_settings }}
         - Zone Config: {{ zone_config }}
@@ -240,11 +223,7 @@ action:
     domain: mobile_app
     type: notify
     message: >
-      {% if loiter_cross %}
-        Loitering detected on {{ camera_id }} - Object loitering for {{ duration }}s.
-      {% else %}
-        Extended presence on {{ camera_id }} - Object stationary for {{ duration }}s.
-      {% endif %}
+      Motion detected on {{ camera_id }} - Object has been present for {{ duration }}s.
     data:
       tag: "{{ event_id }}"
       image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
@@ -310,7 +289,6 @@ action:
               {% else %}
                 {{ loiter_cross }}
               {% endif %}
-            update_motionless_cross: "{{ update_duration >= motionless_threshold if update_payload.after is defined else motionless_cross }}"
 
         # Send update notification if something changed
         - choose:
@@ -321,8 +299,6 @@ action:
                   value_template: "{{ update_zones != current_zones }}"
                 - condition: template
                   value_template: "{{ update_loiter_cross != loiter_cross }}"
-                - condition: template
-                  value_template: "{{ update_motionless_cross != motionless_cross }}"
                 - condition: template
                   value_template: "{{ update_type == 'end' }}"
               sequence:
@@ -336,9 +312,6 @@ action:
                       Update on {{ camera_id }}:
                       {% if update_loiter_cross != loiter_cross %}
                         - Loitering status changed
-                      {% endif %}
-                      {% if update_motionless_cross != motionless_cross %}
-                        - Motionless status changed
                       {% endif %}
                       {% if update_zones != current_zones %}
                         - Zones changed to: {{ update_zones | join(', ') }}
