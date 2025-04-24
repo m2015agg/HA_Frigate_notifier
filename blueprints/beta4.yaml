@@ -166,32 +166,26 @@ variables:
 
   # Check if we've already notified for this event
   already_notified: >-
-    {% set current = state_attr('input_text.frigate_notified_events','value') | default('') %}
-    {% if current == '' %}
-      false
+    {% set current = states('input_text.frigate_notified_events') %}
+    {% if current == 'unknown' or current == '' %}
+      {{ event_id }}
     {% else %}
       {% set seen = current.split(',') %}
-      {% set cleaned = seen | select('ne', '') | list %}
-      {% set event_key = event_id ~ '_' ~ (duration // 30) %}
-      {{ event_key in cleaned }}
+      {% set new_list = seen + [event_id] %}
+      {{ new_list[-20:] | join(',') }}
     {% endif %}
 
 # Conditions that must be met to trigger the action
 condition:
-  # First check if we've already processed this event
-  - condition: template
-    value_template: >-
-      {% set current = state_attr('input_text.frigate_notified_events','value') | default('') %}
-      {% set seen = current.split(',') if current else [] %}
-      {% set cleaned = seen | select('ne', '') | list %}
-      {% set event_key = event_id ~ '_' ~ (duration // 30) %}
-      {% set result = not (event_key in cleaned) %}
-      {{ result }}
-
   # Only notify for watched cameras and when thresholds are met
   - condition: template
     value_template: >-
       {{ is_watched_camera and should_notify }}
+
+  # Prevent duplicate notifications using a list of seen events
+  - condition: template
+    value_template: >-
+      {{ not (alert_once and already_notified) }}
 
 # Actions to perform when conditions are met
 action:
@@ -200,19 +194,14 @@ action:
     data:
       name: Frigate Motion Watcher
       message: >
-        Event ID Check:
-        Current ID: {{ event_id }}
-        Duration: {{ duration }}s
-        Event Key: {{ event_id ~ '_' ~ (duration // 30) }}
-        Current List: {{ state_attr('input_text.frigate_notified_events','value') | default('none') }}
-        ---
-        Event Details:
-        Camera: {{ camera_id }}
-        Loiter: {{ status }} ({{ duration }}s/{{ loiter_threshold }}s)
-        Motionless: {{ duration }}s/{{ motionless_threshold }}s
-        Notify: {{ should_notify }}
-        Alert Once: {{ alert_once }}
-        Already Notified: {{ already_notified }}
+        Event from {{ camera_id }} — 
+        Loiter: {{ status }} ({{ duration }}s/{{ loiter_threshold }}s) — 
+        Motionless: {{ duration }}s/{{ motionless_threshold }}s — 
+        Notify: {{ should_notify }} - 
+        Alert Once: {{ alert_once }} -
+        Event ID: {{ event_id }} -
+        Already Notified: {{ already_notified }} -
+        Seen Events: {{ state_attr('input_text.frigate_notified_events','value') | default('none') }} -
         Payload: {{ payload }}
 
   # Send mobile notification with context-aware message
@@ -236,13 +225,11 @@ action:
       entity_id: input_text.frigate_notified_events
     data:
       value: >-
-        {% set current = state_attr('input_text.frigate_notified_events','value') | default('') %}
-        {% if current == '' %}
-          {{ event_id ~ '_' ~ (duration // 30) }}
+        {% set current = states('input_text.frigate_notified_events') %}
+        {% if current == 'unknown' or current == '' %}
+          {{ event_id }}
         {% else %}
           {% set seen = current.split(',') %}
-          {% set cleaned = seen | select('ne', '') | list %}
-          {% set event_key = event_id ~ '_' ~ (duration // 30) %}
-          {% set new_list = cleaned + [event_key] %}
+          {% set new_list = seen + [event_id] %}
           {{ new_list[-20:] | join(',') }}
         {% endif %}
