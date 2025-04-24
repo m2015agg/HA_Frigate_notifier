@@ -1,10 +1,10 @@
 blueprint:
   # Blueprint metadata
-  name: Hybrid Frigate Loiter & Motion Notifications
-  source_url: "https://raw.githubusercontent.com/m2015agg/HA_Frigate_notifier/main/blueprints/beta4.yaml"
+  name: Hybrid Frigate Loiter & Motion Notifications (Redis)
+  source_url: "https://raw.githubusercontent.com/m2015agg/HA_Frigate_notifier/main/blueprints/redis.yaml"
   description: >
     Notify once when Frigate reports true loitering or when an object remains
-    motionless for a specified duration. Includes real-time updates.
+    motionless for a specified duration. Uses Redis for event tracking.
   domain: automation
 
   # Input configuration section
@@ -50,6 +50,14 @@ blueprint:
           max: 3600
           unit_of_measurement: seconds
 
+    # Prevent duplicate notifications for the same event
+    alert_once:
+      name: Alert Once
+      description: Only send one notification per unique event
+      default: true
+      selector:
+        boolean: {}
+
     mqtt_topic:
       name: MQTT Topic
       description: Topic where Frigate publishes detection events (usually frigate/events).
@@ -73,24 +81,53 @@ blueprint:
         street:15
         Yard:0
         Garage_Zone:5
-        
-        Each line should be in the format: zone_name:seconds
-        Zone names are case-sensitive and should match exactly with your Frigate zones.
       default: ""
       selector:
         text:
           multiline: true
 
-    # Timeout for update loop
-    timeout:
-      name: Update Timeout (minutes)
-      description: How long to wait for updates before ending the loop
-      default: 5
+    # Redis configuration
+    redis_host:
+      name: Redis Host
+      description: Hostname or IP address of your Redis server
+      default: "localhost"
+      selector:
+        text: {}
+
+    redis_port:
+      name: Redis Port
+      description: Port number of your Redis server
+      default: 6379
       selector:
         number:
           min: 1
-          max: 60
-          unit_of_measurement: minutes
+          max: 65535
+
+    redis_password:
+      name: Redis Password
+      description: Password for your Redis server (leave empty if no password)
+      default: ""
+      selector:
+        text: {}
+
+    redis_db:
+      name: Redis Database
+      description: Redis database number to use
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 15
+
+    redis_ttl:
+      name: Redis TTL (seconds)
+      description: How long to keep event IDs in Redis (in seconds)
+      default: 86400
+      selector:
+        number:
+          min: 60
+          max: 604800
+          unit_of_measurement: seconds
 
 # Run automation in single mode (one instance at a time)
 mode: single
@@ -107,7 +144,7 @@ variables:
   # Extract data from the MQTT payload
   payload: "{{ trigger.payload_json }}"
   full_event_id: "{{ payload.after.id }}"
-  event_id: "{{ payload.after.id[-5:] if payload.after.id is string else '' }}"
+  event_id: "{{ payload.after.id }}"
   # Check if Frigate has flagged this as loitering
   status: "{{ payload.after.pending_loitering }}"
   # Get actual duration from timestamps
@@ -120,8 +157,13 @@ variables:
   loiter_threshold: !input loiter_threshold
   motionless_threshold: !input motionless_threshold
   base_url: !input base_url
+  alert_once: !input alert_once
   zone_settings: !input zone_settings
-  timeout: !input timeout
+  redis_host: !input redis_host
+  redis_port: !input redis_port
+  redis_password: !input redis_password
+  redis_db: !input redis_db
+  redis_ttl: !input redis_ttl
   
   # Check if the camera is one we're monitoring
   is_watched_camera: >-
@@ -131,7 +173,7 @@ variables:
   
   # Parse zone settings
   zone_config: >-
-    {% if zone_settings and zone_settings != '' %}
+    {% if zone_settings %}
       {% set config = {} %}
       {% for line in zone_settings.split('\n') %}
         {% if ':' in line %}
@@ -171,12 +213,23 @@ variables:
   should_notify: >-
     {{ (loiter_cross or motionless_cross) }}
 
+  # Check if we've already notified for this event using Redis
+  already_notified: >-
+    {% set redis_key = 'frigate:notified:' ~ event_id %}
+    {% set result = states('sensor.redis_' ~ redis_key) %}
+    {{ result == 'true' }}
+
 # Conditions that must be met to trigger the action
 condition:
   # Only notify for watched cameras and when thresholds are met
   - condition: template
     value_template: >-
       {{ is_watched_camera and should_notify }}
+
+  # Prevent duplicate notifications using Redis
+  - condition: template
+    value_template: >-
+      {{ not (alert_once and already_notified) }}
 
 # Actions to perform when conditions are met
 action:
@@ -199,14 +252,15 @@ action:
         - Loiter Cross: {{ loiter_cross }}
         - Motionless Cross: {{ motionless_cross }}
         - Should Notify: {{ should_notify }}
-        - Zone Settings Input: {{ zone_settings }}
-        - Zone Config: {{ zone_config }}
+        - Already Notified: {{ already_notified }}
         
         CONDITIONS:
         - Is Watched Camera: {{ is_watched_camera }}
         - Should Notify: {{ should_notify }}
+        - Alert Once: {{ alert_once }}
+        - Already Notified: {{ already_notified }}
 
-  # Send initial mobile notification
+  # Send mobile notification with context-aware message
   - device_id: !input notify_device
     domain: mobile_app
     type: notify
@@ -221,71 +275,13 @@ action:
       image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
       clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
 
-  # Loop for updates
-  - repeat:
-      sequence:
-        # Wait for the next MQTT update for this event_id
-        - wait_for_trigger:
-            - trigger: mqtt
-              topic: "{{ mqtt_topic }}"
-              value_template: "{{ value_json.after.id == full_event_id }}"
-          timeout:
-            minutes: "{{ timeout }}"
-          continue_on_timeout: false
-
-        # Re-extract variables for the update
-        - variables:
-            update_payload: "{{ wait.trigger.payload_json }}"
-            update_type: "{{ update_payload.type }}"
-            update_duration: "{{ (update_payload.after.end_time - update_payload.after.start_time) | int if update_payload.after.end_time else (update_payload.after.frame_time - update_payload.after.start_time) | int }}"
-            update_zones: "{{ update_payload.after.current_zones }}"
-            update_loiter_cross: >-
-              {% set zone_time = namespace(value=loiter_threshold) %}
-              {% for zone in update_zones %}
-                {% if zone in zone_config %}
-                  {% set zone_time.value = zone_config[zone].loitering_time %}
-                {% endif %}
-              {% endfor %}
-              {{ update_duration >= zone_time.value }}
-            update_motionless_cross: "{{ update_duration >= motionless_threshold }}"
-
-        # Send update notification if something changed
-        - choose:
-            - conditions:
-                - condition: template
-                  value_template: "{{ update_duration != duration }}"
-                - condition: template
-                  value_template: "{{ update_zones != current_zones }}"
-                - condition: template
-                  value_template: "{{ update_loiter_cross != loiter_cross }}"
-                - condition: template
-                  value_template: "{{ update_motionless_cross != motionless_cross }}"
-                - condition: template
-                  value_template: "{{ update_type == 'end' }}"
-              sequence:
-                - device_id: !input notify_device
-                  domain: mobile_app
-                  type: notify
-                  message: >
-                    {% if update_type == 'end' %}
-                      Event ended on {{ camera_id }} - Total duration: {{ update_duration }}s.
-                    {% else %}
-                      Update on {{ camera_id }}:
-                      {% if update_loiter_cross != loiter_cross %}
-                        - Loitering status changed
-                      {% endif %}
-                      {% if update_motionless_cross != motionless_cross %}
-                        - Motionless status changed
-                      {% endif %}
-                      {% if update_zones != current_zones %}
-                        - Zones changed to: {{ update_zones | join(', ') }}
-                      {% endif %}
-                      - Current duration: {{ update_duration }}s
-                    {% endif %}
-                  data:
-                    tag: "{{ event_id }}"
-                    image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-                    clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-
-      # Exit loop when either we time out or Frigate signals "end"
-      until: "{{ not wait.trigger or wait.trigger.payload_json.type == 'end' }}"
+  # Store the event ID in Redis with TTL
+  - service: redis.set
+    data:
+      host: "{{ redis_host }}"
+      port: "{{ redis_port }}"
+      password: "{{ redis_password }}"
+      db: "{{ redis_db }}"
+      key: "frigate:notified:{{ event_id }}"
+      value: "true"
+      ttl: "{{ redis_ttl }}" 
