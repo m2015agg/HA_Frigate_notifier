@@ -155,7 +155,7 @@ variables:
         {% set zone_time.value = zone_config[zone].loitering_time %}
       {% endif %}
     {% endfor %}
-    {{ status and duration >= zone_time.value }}
+    {{ duration >= zone_time.value }}
 
   # Check if we've hit the motionless threshold
   motionless_cross: >-
@@ -197,7 +197,7 @@ action:
       message: >
         AUTOMATION TRIGGERED:
         Topic: {{ trigger.topic }}
-        Payload: {{ trigger.payload | to_json(indent=2) }}
+        Payload: {{ trigger.payload }}
         
         VARIABLES:
         - Event ID: {{ event_id }}
