@@ -256,17 +256,27 @@ action:
         - variables:
             update_payload: "{{ wait.trigger.payload_json }}"
             update_type: "{{ update_payload.type }}"
-            update_duration: "{{ (update_payload.after.end_time - update_payload.after.start_time) | int if update_payload.after.end_time else (update_payload.after.frame_time - update_payload.after.start_time) | int }}"
-            update_zones: "{{ update_payload.after.current_zones }}"
+            update_duration: >-
+              {% if update_payload.after is defined %}
+                {{ (update_payload.after.end_time - update_payload.after.start_time) | int if update_payload.after.end_time is defined else (update_payload.after.frame_time - update_payload.after.start_time) | int }}
+              {% else %}
+                {{ duration }}
+              {% endif %}
+            update_zones: "{{ update_payload.after.current_zones if update_payload.after is defined else current_zones }}"
             update_loiter_cross: >-
-              {% set zone_time = namespace(value=loiter_threshold) %}
-              {% for zone in update_zones %}
-                {% if zone in zone_config %}
-                  {% set zone_time.value = zone_config[zone].loitering_time %}
-                {% endif %}
-              {% endfor %}
-              {{ update_duration >= zone_time.value }}
-            update_motionless_cross: "{{ update_duration >= motionless_threshold }}"
+              {% if update_payload.after is defined %}
+                {% set threshold = loiter_threshold %}
+                {% for zone in update_zones %}
+                  {% if zone in zone_config %}
+                    {% set threshold = zone_config[zone].loitering_time %}
+                    {% break %}
+                  {% endif %}
+                {% endfor %}
+                {{ update_duration >= threshold }}
+              {% else %}
+                {{ loiter_cross }}
+              {% endif %}
+            update_motionless_cross: "{{ update_duration >= motionless_threshold if update_payload.after is defined else motionless_cross }}"
 
         # Send update notification if something changed
         - choose:
