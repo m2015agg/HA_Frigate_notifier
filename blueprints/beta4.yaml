@@ -108,7 +108,7 @@ trigger:
   platform: mqtt
   topic: !input mqtt_topic
   id: frigate-event
-  value_template: "{{ value_json.type in ['new','update'] }}"
+  value_template: "{{ value_json.type == 'new' }}"
 
 # Variables used in the automation
 variables:
@@ -177,7 +177,7 @@ variables:
   
   # Combine both conditions - notify if either is true
   should_notify: >-
-    {{ (loiter_cross or motionless_cross) }}
+    {{ (loiter_cross or motionless_cross) and not update_type == 'end' }}
 
 # Conditions that must be met to trigger the action
 condition:
@@ -228,6 +228,8 @@ action:
       tag: "{{ event_id }}"
       image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
       clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+      importance: high
+      priority: high
 
   # HomeKit alert (conditional)
   - choose:
@@ -325,6 +327,8 @@ action:
                     tag: "{{ event_id }}"
                     image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
                     clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                    importance: low
+                    priority: low
                 # HomeKit alert (conditional)
                 - choose:
                     - conditions:
