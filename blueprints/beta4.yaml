@@ -104,8 +104,8 @@ variables:
   event_id: "{{ payload.after.id[-5:] if payload.after.id is string else '' }}"
   # Check if Frigate has flagged this as loitering
   status: "{{ payload.after.pending_loitering }}"
-  # Get how long the object has been motionless
-  duration: "{{ payload.after.motionless_count }}"
+  # Get actual duration from timestamps
+  duration: "{{ (payload.after.end_time - payload.after.start_time) | int if payload.after.end_time else (payload.after.frame_time - payload.after.start_time) | int }}"
   camera_id: "{{ payload.after.camera }}"
   
   # Get input variables
@@ -115,6 +115,7 @@ variables:
   motionless_threshold: !input motionless_threshold
   base_url: !input base_url
   alert_once: !input alert_once
+  zone_settings: !input zone_settings
   
   # Check if the camera is one we're monitoring
   is_watched_camera: >-
