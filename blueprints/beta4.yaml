@@ -189,15 +189,16 @@ condition:
 
 # Actions to perform when conditions are met
 action:
-  # Log debug information about the event
+  # Log every automation trigger
   - service: logbook.log
     data:
-      name: Frigate Motion Watcher Debug
+      name: Frigate Automation Debug
       message: >
-        RAW PAYLOAD:
-        {{ payload | to_json(indent=2) }}
+        AUTOMATION TRIGGERED:
+        Topic: {{ trigger.topic }}
+        Payload: {{ trigger.payload | to_json(indent=2) }}
         
-        EVALUATED VARIABLES:
+        VARIABLES:
         - Event ID: {{ event_id }}
         - Full Event ID: {{ full_event_id }}
         - Status: {{ status }}
@@ -209,6 +210,12 @@ action:
         - Should Notify: {{ should_notify }}
         - Already Notified: {{ already_notified }}
         - Current List: {{ states('input_text.frigate_notified_events') }}
+        
+        CONDITIONS:
+        - Is Watched Camera: {{ is_watched_camera }}
+        - Should Notify: {{ should_notify }}
+        - Alert Once: {{ alert_once }}
+        - Already Notified: {{ already_notified }}
 
   # Original notification action
   - device_id: !input notify_device
