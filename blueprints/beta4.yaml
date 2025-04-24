@@ -331,25 +331,25 @@ action:
                     tag: "{{ event_id }}"
                     image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
                     clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-                  # HomeKit alert (conditional)
-                  - choose:
-                      - conditions:
-                          - condition: template
-                            value_template: "{{ enable_homekit }}"
-                        sequence:
-                          # ► HomeKit alert: flip the per-camera boolean on…
-                          - service: input_boolean.turn_on
-                            target:
-                              entity_id: >
-                                input_boolean.frigate_{{ camera_id | lower }}_alert
+                # HomeKit alert (conditional)
+                - choose:
+                    - conditions:
+                        - condition: template
+                          value_template: "{{ enable_homekit }}"
+                      sequence:
+                        # ► HomeKit alert: flip the per-camera boolean on…
+                        - service: input_boolean.turn_on
+                          target:
+                            entity_id: >
+                              input_boolean.frigate_{{ camera_id | lower }}_alert
 
-                          # …wait a few seconds…
-                          - delay: 5
+                        # …wait a few seconds…
+                        - delay: 5
 
-                          # …then flip it off so HomeKit can re-trigger next time
-                          - service: input_boolean.turn_off
-                            target:
-                              entity_id: >
-                                input_boolean.frigate_{{ camera_id | lower }}_alert
+                        # …then flip it off so HomeKit can re-trigger next time
+                        - service: input_boolean.turn_off
+                          target:
+                            entity_id: >
+                              input_boolean.frigate_{{ camera_id | lower }}_alert
       # Exit loop when either we time out or Frigate signals "end"
       until: "{{ not wait.trigger or wait.trigger.payload_json.type == 'end' }}"
