@@ -100,6 +100,14 @@ blueprint:
       selector:
         boolean: {}
 
+    # Critical alert toggle
+    critical_alert:
+      name: Enable Critical Alerts
+      description: Make notifications critical (bypass Do Not Disturb)
+      default: false
+      selector:
+        boolean: {}
+
 # Run automation in single mode (one instance at a time)
 mode: single
 
@@ -131,6 +139,7 @@ variables:
   zone_settings: !input zone_settings
   timeout: !input timeout
   enable_homekit: !input enable_homekit
+  critical_alert: !input critical_alert
   
   # Check if the camera is one we're monitoring
   is_watched_camera: >-
@@ -230,6 +239,7 @@ action:
       clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
       importance: high
       priority: high
+      critical: "{{ critical_alert }}"
 
   # HomeKit alert (conditional)
   - choose:
@@ -329,6 +339,7 @@ action:
                     clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
                     importance: low
                     priority: low
+                    critical: "{{ critical_alert }}"
                 # HomeKit alert (conditional)
                 - choose:
                     - conditions:
