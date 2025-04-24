@@ -192,19 +192,25 @@ action:
   # Log debug information about the event
   - service: logbook.log
     data:
-      name: Frigate Motion Watcher
+      name: Frigate Motion Watcher Debug
       message: >
-        Event from {{ camera_id }} — 
-        Loiter: {{ status }} ({{ duration }}s/{{ loiter_threshold }}s) — 
-        Motionless: {{ duration }}s/{{ motionless_threshold }}s — 
-        Notify: {{ should_notify }} - 
-        Alert Once: {{ alert_once }} -
-        Event ID: {{ event_id }} -
-        Already Notified: {{ already_notified }} -
-        Seen Events: {{ state_attr('input_text.frigate_notified_events','value') | default('none') }} -
-        Payload: {{ payload }}
+        RAW PAYLOAD:
+        {{ payload | to_json(indent=2) }}
+        
+        EVALUATED VARIABLES:
+        - Event ID: {{ event_id }}
+        - Full Event ID: {{ full_event_id }}
+        - Status: {{ status }}
+        - Duration: {{ duration }}
+        - Camera: {{ camera_id }}
+        - Current Zones: {{ current_zones }}
+        - Loiter Cross: {{ loiter_cross }}
+        - Motionless Cross: {{ motionless_cross }}
+        - Should Notify: {{ should_notify }}
+        - Already Notified: {{ already_notified }}
+        - Current List: {{ states('input_text.frigate_notified_events') }}
 
-  # Send mobile notification with context-aware message
+  # Original notification action
   - device_id: !input notify_device
     domain: mobile_app
     type: notify
