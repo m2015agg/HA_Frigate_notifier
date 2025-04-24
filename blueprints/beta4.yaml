@@ -167,9 +167,13 @@ variables:
   # Check if we've already notified for this event
   already_notified: >-
     {% set current = state_attr('input_text.frigate_notified_events','value') | default('') %}
-    {% set seen = current.split(',') if current else [] %}
-    {% set cleaned = seen | select('ne', '') | list %}
-    {{ event_id in cleaned }}
+    {% if current == '' %}
+      false
+    {% else %}
+      {% set seen = current.split(',') %}
+      {% set cleaned = seen | select('ne', '') | list %}
+      {{ event_id in cleaned }}
+    {% endif %}
 
 # Conditions that must be met to trigger the action
 condition:
@@ -222,8 +226,11 @@ action:
     data:
       value: >-
         {% set current = state_attr('input_text.frigate_notified_events','value') | default('') %}
-        {% set seen = current.split(',') if current else [] %}
-        {% set cleaned = seen | select('ne', '') | list %}
-        {% set new_list = cleaned + [event_id] %}
-        {% set final = new_list[-20:] | join(',') %}
-        {{ final }}
+        {% if current == '' %}
+          {{ event_id }}
+        {% else %}
+          {% set seen = current.split(',') %}
+          {% set cleaned = seen | select('ne', '') | list %}
+          {% set new_list = cleaned + [event_id] %}
+          {{ new_list[-20:] | join(',') }}
+        {% endif %}
