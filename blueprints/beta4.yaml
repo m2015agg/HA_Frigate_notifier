@@ -39,6 +39,17 @@ blueprint:
           max: 3600
           unit_of_measurement: seconds
 
+    # Maximum loitering time
+    max_loiter_time:
+      name: Maximum Loiter Time (seconds)
+      description: Maximum time to consider an object as loitering (set to 0 to disable)
+      default: 61
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: seconds
+
     # Threshold for raw motionless duration
     motionless_threshold:
       name: Motionless Threshold (seconds)
@@ -134,6 +145,7 @@ variables:
   cameras: !input cameras
   notify_device: !input notify_device
   loiter_threshold: !input loiter_threshold
+  max_loiter_time: !input max_loiter_time
   motionless_threshold: !input motionless_threshold
   base_url: !input base_url
   zone_settings: !input zone_settings
@@ -178,7 +190,7 @@ variables:
         {% break %}
       {% endif %}
     {% endfor %}
-    {{ duration >= threshold }}
+    {{ duration >= threshold and (max_loiter_time == 0 or duration <= max_loiter_time) }}
 
   # Check if we've hit the motionless threshold
   motionless_cross: >-
