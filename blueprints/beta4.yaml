@@ -94,7 +94,7 @@ trigger:
   platform: mqtt
   topic: !input mqtt_topic
   id: frigate-event
-  value_template: "{{ value_json.type in ['new','update', 'end'] }}"
+  value_template: "{{ value_json.type in ['new','update'] }}"
 
 # Variables used in the automation
 variables:
@@ -217,7 +217,7 @@ action:
         - Alert Once: {{ alert_once }}
         - Already Notified: {{ already_notified }}
 
-  # Original notification action
+  # Send mobile notification with context-aware message
   - device_id: !input notify_device
     domain: mobile_app
     type: notify
@@ -232,7 +232,7 @@ action:
       image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
       clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
 
-  # Update the list of seen events to prevent duplicates
+  # Only update the list of seen events after sending notification
   - service: input_text.set_value
     target:
       entity_id: input_text.frigate_notified_events
