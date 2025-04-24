@@ -126,7 +126,7 @@ variables:
   # Parse zone settings
   zone_config: >-
     {% if zone_settings %}
-      {% set config = namespace(data={}) %}
+      {% set config = {} %}
       {% for line in zone_settings.split('\n') %}
         {% if ':' in line %}
           {% set parts = line.split(':') %}
@@ -134,12 +134,12 @@ variables:
             {% set zone = parts[0] | trim %}
             {% set value = parts[1] | trim %}
             {% if value | int(0) >= 0 %}
-              {% set _ = config.data.update({zone: {'loitering_time': value | int}}) %}
+              {% set config = config | combine({zone: {'loitering_time': value | int}}) %}
             {% endif %}
           {% endif %}
         {% endif %}
       {% endfor %}
-      {{ config.data }}
+      {{ config }}
     {% else %}
       {{ {} }}
     {% endif %}
