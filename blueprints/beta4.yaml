@@ -118,8 +118,30 @@ trigger:
   id: frigate-event
   value_template: >-
     {% set type = value_json.type | default('unknown') %}
-    {% set id_match = value_json.after.id == full_event_id %}
-    {{ id_match and type in ['update', 'end'] }}
+    {% set camera = value_json.after.camera | lower %}
+    {% set camera_name = 'camera.' ~ camera %}
+    {% set valid_camera = camera_name in (cameras | map('lower') | list) %}
+    
+    {% set has_current_zones = value_json.after.current_zones is defined 
+       and value_json.after.current_zones | length > 0 %}
+    {% set entered_zone = type == 'new' 
+       and value_json.after.entered_zones is defined 
+       and value_json.after.entered_zones | length > 0 %}
+    {% set was_in_zone = type == 'end' 
+       and value_json.before.current_zones is defined 
+       and value_json.before.current_zones | length > 0 %}
+    
+    {# Only trigger if:
+       1. It's a valid camera AND
+       2. It's a valid event type AND
+       3. The object is either:
+          - currently in a zone
+          - just entered a zone (new event)
+          - was in a zone (end event)
+    #}
+    {{ valid_camera 
+       and type in ['new', 'update', 'end']
+       and (has_current_zones or entered_zone or was_in_zone) }}
 
 # Variables used in the automation
 variables:
