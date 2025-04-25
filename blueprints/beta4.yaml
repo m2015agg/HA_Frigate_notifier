@@ -116,7 +116,10 @@ trigger:
   platform: mqtt
   topic: !input mqtt_topic
   id: frigate-event
-  value_template: "{{ value_json.type == 'new' }}"
+  value_template: >-
+    {% set type = value_json.type | default('unknown') %}
+    {% set id_match = value_json.after.id == full_event_id %}
+    {{ id_match and type in ['update', 'end'] }}
 
 # Variables used in the automation
 variables:
@@ -126,8 +129,13 @@ variables:
   event_id: "{{ payload.after.id[-5:] if payload.after.id is string else '' }}"
   # Check if Frigate has flagged this as loitering
   status: "{{ payload.after.pending_loitering }}"
-  # Get actual duration from timestamps
-  duration: "{{ (payload.after.end_time - payload.after.start_time) | int if payload.after.end_time else (payload.after.frame_time - payload.after.start_time) | int }}"
+  # Get actual duration from timestamps, but only if object is in a zone
+  duration: >-
+    {% if payload.after.current_zones and payload.after.current_zones | length > 0 %}
+      {{ (payload.after.end_time - payload.after.start_time) | int if payload.after.end_time else (payload.after.frame_time - payload.after.start_time) | int }}
+    {% else %}
+      0
+    {% endif %}
   camera_id: "{{ payload.after.camera }}"
   
   # Get input variables
@@ -178,7 +186,7 @@ variables:
         {% break %}
       {% endif %}
     {% endfor %}
-    {{ duration >= threshold and (max_loiter_time == 0 or duration <= max_loiter_time) }}
+    {{ current_zones | length > 0 and duration >= threshold and (max_loiter_time == 0 or duration <= max_loiter_time) }}
 
   # Combine both conditions - notify if either is true
   should_notify: >-
@@ -200,23 +208,11 @@ action:
       message: >
         AUTOMATION TRIGGERED:
         Topic: {{ trigger.topic }}
-        Payload: {{ trigger.payload }}
-        
-        VARIABLES:
-        - Event ID: {{ event_id }}
-        - Full Event ID: {{ full_event_id }}
-        - Status: {{ status }}
-        - Duration: {{ duration }}
-        - Camera: {{ camera_id }}
-        - Current Zones: {{ current_zones }}
-        - Loiter Cross: {{ loiter_cross }}
-        - Should Notify: {{ should_notify }}
-        - Zone Settings Input: {{ zone_settings }}
-        - Zone Config: {{ zone_config }}
-        
-        CONDITIONS:
-        - Is Watched Camera: {{ is_watched_camera }}
-        - Should Notify: {{ should_notify }}
+        Event Type: {{ value_json.type }}
+        Event ID: {{ event_id }}
+        Camera: {{ camera_id }}
+        Duration: {{ duration }}
+        Zones: {{ current_zones }}
 
   # Send initial mobile notification
   - device_id: !input notify_device
@@ -260,7 +256,10 @@ action:
         - wait_for_trigger:
             - trigger: mqtt
               topic: "{{ mqtt_topic }}"
-              value_template: "{{ value_json.after.id == full_event_id }}"
+              value_template: >-
+                {% set type = value_json.type | default('unknown') %}
+                {% set id_match = value_json.after.id == full_event_id %}
+                {{ id_match and type in ['update', 'end'] }}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
@@ -270,10 +269,10 @@ action:
             update_payload: "{{ wait.trigger.payload_json }}"
             update_type: "{{ update_payload.type }}"
             update_duration: >-
-              {% if update_payload.after is defined %}
+              {% if update_payload.after is defined and update_payload.after.current_zones and update_payload.after.current_zones | length > 0 %}
                 {{ (update_payload.after.end_time - update_payload.after.start_time) | int if update_payload.after.end_time is defined else (update_payload.after.frame_time - update_payload.after.start_time) | int }}
               {% else %}
-                {{ duration }}
+                0
               {% endif %}
             update_zones: "{{ update_payload.after.current_zones if update_payload.after is defined else current_zones }}"
             update_loiter_cross: >-
@@ -285,7 +284,7 @@ action:
                     {% break %}
                   {% endif %}
                 {% endfor %}
-                {{ update_duration >= threshold }}
+                {{ update_zones | length > 0 and update_duration >= threshold }}
               {% else %}
                 {{ loiter_cross }}
               {% endif %}
