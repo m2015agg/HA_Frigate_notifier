@@ -124,24 +124,13 @@ trigger:
     
     {% set has_current_zones = value_json.after.current_zones is defined 
        and value_json.after.current_zones | length > 0 %}
-    {% set entered_zone = type == 'new' 
-       and value_json.after.entered_zones is defined 
+    {% set entered_zone = value_json.after.entered_zones is defined 
        and value_json.after.entered_zones | length > 0 %}
-    {% set was_in_zone = type == 'end' 
-       and value_json.before.current_zones is defined 
-       and value_json.before.current_zones | length > 0 %}
     
-    {# Only trigger if:
-       1. It's a valid camera AND
-       2. It's a valid event type AND
-       3. The object is either:
-          - currently in a zone
-          - just entered a zone (new event)
-          - was in a zone (end event)
-    #}
+    {# Only start new automation for new events that enter a zone #}
     {{ valid_camera 
-       and type in ['new', 'update', 'end']
-       and (has_current_zones or entered_zone or was_in_zone) }}
+       and type == 'new'
+       and (has_current_zones or entered_zone) }}
 
 # Variables used in the automation
 variables:
@@ -230,50 +219,50 @@ action:
       message: >
         AUTOMATION TRIGGERED:
         Topic: {{ trigger.topic }}
-        Event Type: {{ value_json.type }}
+        Event Type: {{ trigger.payload_json.type }}
         Event ID: {{ event_id }}
         Camera: {{ camera_id }}
         Duration: {{ duration }}
         Zones: {{ current_zones }}
 
-  # Send initial mobile notification
-  - device_id: !input notify_device
-    domain: mobile_app
-    type: notify
-    message: >
-      Motion detected on {{ camera_id }} - Object has been present for {{ duration }}s.
-    data:
-      tag: "{{ event_id }}"
-      image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-      clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-      importance: high
-      priority: high
-      critical: "{{ critical_alert }}"
-
-  # HomeKit alert (conditional)
-  - choose:
-      - conditions:
-          - condition: template
-            value_template: "{{ enable_homekit }}"
-        sequence:
-          # ► HomeKit alert: flip the per-camera boolean on…
-          - service: input_boolean.turn_on
-            target:
-              entity_id: >
-                input_boolean.frigate_{{ camera_id | lower }}_alert
-
-          # …wait a few seconds…
-          - delay: 5
-
-          # …then flip it off so HomeKit can re-trigger next time
-          - service: input_boolean.turn_off
-            target:
-              entity_id: >
-                input_boolean.frigate_{{ camera_id | lower }}_alert
-
-  # Loop for updates
+  # Start the main loop that handles all notifications
   - repeat:
       sequence:
+        # Send notification if conditions are met
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: "{{ should_notify }}"
+              sequence:
+                - device_id: !input notify_device
+                  domain: mobile_app
+                  type: notify
+                  message: >
+                    Motion detected on {{ camera_id }} - Object has been present for {{ duration }}s.
+                  data:
+                    tag: "{{ event_id }}"
+                    image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
+                    clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                    importance: high
+                    priority: high
+                    critical: "{{ critical_alert }}"
+
+                # HomeKit alert (conditional)
+                - choose:
+                    - conditions:
+                        - condition: template
+                          value_template: "{{ enable_homekit }}"
+                      sequence:
+                        - service: input_boolean.turn_on
+                          target:
+                            entity_id: >
+                              input_boolean.frigate_{{ camera_id | lower }}_alert
+                        - delay: 5
+                        - service: input_boolean.turn_off
+                          target:
+                            entity_id: >
+                              input_boolean.frigate_{{ camera_id | lower }}_alert
+
         # Wait for the next MQTT update for this event_id
         - wait_for_trigger:
             - trigger: mqtt
@@ -285,6 +274,17 @@ action:
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
+
+        # Log the update we received
+        - service: logbook.log
+          data:
+            name: Frigate Update Debug
+            message: >
+              Received update for event {{ event_id }}:
+              Type: {{ wait.trigger.payload_json.type }}
+              Duration: {{ update_duration }}
+              Zones: {{ update_zones }}
+              Loiter Cross: {{ update_loiter_cross }}
 
         # Re-extract variables for the update
         - variables:
@@ -352,19 +352,14 @@ action:
                         - condition: template
                           value_template: "{{ enable_homekit }}"
                       sequence:
-                        # ► HomeKit alert: flip the per-camera boolean on…
                         - service: input_boolean.turn_on
                           target:
                             entity_id: >
                               input_boolean.frigate_{{ camera_id | lower }}_alert
-
-                        # …wait a few seconds…
                         - delay: 5
-
-                        # …then flip it off so HomeKit can re-trigger next time
                         - service: input_boolean.turn_off
                           target:
                             entity_id: >
                               input_boolean.frigate_{{ camera_id | lower }}_alert
-      # Exit loop when either we time out or Frigate signals "end"
-      until: "{{ not wait.trigger or wait.trigger.payload_json.type == 'end' }}"
+      # Only exit on timeout, not on end event
+      until: "{{ not wait.trigger }}"
