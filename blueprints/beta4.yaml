@@ -152,20 +152,19 @@ action:
                 - condition: template
                   value_template: "{{ should_notify }}"
               sequence:
-                - device_id: !input notify_device
-                  domain: mobile_app
-                  type: notify
-                  message: >
-                    {% if entered_zones|length > 0 %}
-                      Entered zone {{ entered_zones|join(', ') }} on {{ camera_id }}.
-                    {% else %}
-                      Motion on {{ camera_id }} for {{ duration }}s.
-                    {% endif %}
-                  data:
-                    tag: "{{ event_id }}"
-                    image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-                    critical: "{{ critical_alert }}"
+                - service: notify.mobile_app
+  data:
+    message: >-
+      Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
+    target:
+      - !input notify_device
+    data:
+      tag: "{{ event_id }}"
+      image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
+      clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+      importance: high
+      priority: high
+      critical: "{{ critical_alert }}"
 
                 # HomeKit flip
                 - choose:
@@ -225,26 +224,19 @@ action:
                        or update_loiter_cross != loiter_cross
                        or update_duration != duration }}
               sequence:
-                - device_id: !input notify_device
-                  domain: mobile_app
-                  type: notify
-                  message: >
-                    {% if update_type == 'end' %}
-                      Event ended on {{ camera_id }} – {{ update_duration }}s.
-                    {% else %}
-                      {% if update_zones != current_zones %}
-                        Zones: {{ update_zones|join(', ') }}.
-                      {% endif %}
-                      {% if update_loiter_cross != loiter_cross %}
-                        Loiter status changed.
-                      {% endif %}
-                      Duration: {{ update_duration }}s.
-                    {% endif %}
-                  data:
-                    tag: "{{ event_id }}"
-                    image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-                    critical: "{{ critical_alert }}"
+               - service: notify.mobile_app
+  data:
+    message: >-
+      Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
+    target:
+      - !input notify_device
+    data:
+      tag: "{{ event_id }}"
+      image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
+      clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+      importance: high
+      priority: high
+      critical: "{{ critical_alert }}"
 
                 # HomeKit flip on updates
                 - choose:
