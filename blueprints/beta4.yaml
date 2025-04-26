@@ -7,79 +7,79 @@ blueprint:
     then wait for updates (or end) and send only changes or the final end.
   domain: automation
 
-  input:
-    cameras:
-      name: Cameras
-      selector:
-        entity:
-          integration: frigate
-          domain: camera
-          multiple: true
+input:
+  cameras:
+    name: Cameras
+    selector:
+      entity:
+        integration: frigate
+        domain: camera
+        multiple: true
 
-    notify_device:
-      name: Mobile Device
-      selector:
-        device:
-          filter:
-            integration: mobile_app
+  notify_device:
+    name: Mobile Device
+    selector:
+      device:
+        filter:
+          integration: mobile_app
 
-    loiter_threshold:
-      name: Loiter Threshold (seconds)
-      default: 15
-      selector:
-        number:
-          min: 0
-          max: 3600
-          unit_of_measurement: seconds
+  loiter_threshold:
+    name: Loiter Threshold (seconds)
+    default: 15
+    selector:
+      number:
+        min: 0
+        max: 3600
+        unit_of_measurement: seconds
 
-    max_loiter_time:
-      name: Maximum Loiter Time (seconds)
-      default: 61
-      selector:
-        number:
-          min: 0
-          max: 3600
-          unit_of_measurement: seconds
+  max_loiter_time:
+    name: Maximum Loiter Time (seconds)
+    default: 61
+    selector:
+      number:
+        min: 0
+        max: 3600
+        unit_of_measurement: seconds
 
-    mqtt_topic:
-      name: MQTT Topic
-      default: frigate/events
-      selector:
-        text: {}
+  mqtt_topic:
+    name: MQTT Topic
+    default: frigate/events
+    selector:
+      text: {}
 
-    base_url:
-      name: Home Assistant URL
-      default: ""
-      selector:
-        text: {}
+  base_url:
+    name: Home Assistant URL
+    default: ""
+    selector:
+      text: {}
 
-    zone_settings:
-      name: Zone Settings (YAML)
-      default: ""
-      selector:
-        text:
-          multiline: true
+  zone_settings:
+    name: Zone Settings (YAML)
+    default: ""
+    selector:
+      text:
+        multiline: true
 
-    timeout:
-      name: Update Timeout (minutes)
-      default: 5
-      selector:
-        number:
-          min: 1
-          max: 60
-          unit_of_measurement: minutes
+  timeout:
+    name: Update Timeout (minutes)
+    default: 5
+    selector:
+      number:
+        min: 1
+        max: 60
+        unit_of_measurement: minutes
 
-    enable_homekit:
-      name: Enable HomeKit Alerts
-      default: true
-      selector:
-        boolean: {}
+  enable_homekit:
+    name: Enable HomeKit Alerts
+    default: true
+    selector:
+      boolean: {}
 
-    critical_alert:
-      name: Enable Critical Alerts
-      default: false
-      selector:
-        boolean: {}
+  critical_alert:
+    name: Enable Critical Alerts
+    default: false
+    selector:
+      boolean: {}
 
 mode: single
 
@@ -153,20 +153,18 @@ action:
                   value_template: "{{ should_notify }}"
               sequence:
                 - service: notify.mobile_app
-  data:
-    message: >-
-      Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
-    target:
-      - !input notify_device
-    data:
-      tag: "{{ event_id }}"
-      image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-      clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-      importance: high
-      priority: high
-      critical: "{{ critical_alert }}"
-
-                # HomeKit flip
+                  data:
+                    message: >-
+                      Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
+                    target:
+                      - !input notify_device
+                    data:
+                      tag: "{{ event_id }}"
+                      image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
+                      clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                      importance: high
+                      priority: high
+                      critical: "{{ critical_alert }}"
                 - choose:
                     - conditions: "{{ enable_homekit }}"
                       sequence:
@@ -218,27 +216,36 @@ action:
         - choose:
             - conditions:
                 - condition: template
-                  value_template: >
+                  value_template: >-
                     {{ update_type == 'end'
                        or update_zones != current_zones
                        or update_loiter_cross != loiter_cross
                        or update_duration != duration }}
               sequence:
-               - service: notify.mobile_app
-  data:
-    message: >-
-      Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
-    target:
-      - !input notify_device
-    data:
-      tag: "{{ event_id }}"
-      image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-      clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-      importance: high
-      priority: high
-      critical: "{{ critical_alert }}"
-
-                # HomeKit flip on updates
+                - service: notify.mobile_app
+                  data:
+                    message: >-
+                      {% if update_type == 'end' %}
+                        Event ended on {{ camera_id }} – duration {{ update_duration }}s.
+                      {% else %}
+                        Update on {{ camera_id }}:
+                        {% if update_loiter_cross != loiter_cross %}
+                          Loitering status changed.
+                        {% endif %}
+                        {% if update_zones != current_zones %}
+                          Zones now: {{ update_zones | join(', ') }}.
+                        {% endif %}
+                        Duration: {{ update_duration }}s.
+                      {% endif %}
+                    target:
+                      - !input notify_device
+                    data:
+                      tag: "{{ event_id }}"
+                      image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
+                      clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                      importance: high
+                      priority: high
+                      critical: "{{ critical_alert }}"
                 - choose:
                     - conditions: "{{ enable_homekit }}"
                       sequence:
