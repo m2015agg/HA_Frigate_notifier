@@ -10,6 +10,7 @@ blueprint:
 input:
   cameras:
     name: Cameras
+    description: Select the Frigate cameras to monitor
     selector:
       entity:
         integration: frigate
@@ -18,6 +19,7 @@ input:
 
   notify_device:
     name: Mobile Device
+    description: Select a device that runs the official Home Assistant app to receive notifications
     selector:
       device:
         filter:
@@ -25,6 +27,7 @@ input:
 
   loiter_threshold:
     name: Loiter Threshold (seconds)
+    description: Seconds an object must remain in a zone to trigger a notification
     default: 15
     selector:
       number:
@@ -34,6 +37,7 @@ input:
 
   max_loiter_time:
     name: Maximum Loiter Time (seconds)
+    description: Maximum time to track an object (0 for no limit)
     default: 61
     selector:
       number:
@@ -43,18 +47,21 @@ input:
 
   mqtt_topic:
     name: MQTT Topic
+    description: Topic where Frigate publishes detection events
     default: frigate/events
     selector:
       text: {}
 
   base_url:
     name: Home Assistant URL
+    description: External URL for clips/snapshots (omit trailing slash)
     default: ""
     selector:
       text: {}
 
   zone_settings:
     name: Zone Settings (YAML)
+    description: Optional YAML configuration for zone-specific loitering times
     default: ""
     selector:
       text:
@@ -62,6 +69,7 @@ input:
 
   timeout:
     name: Update Timeout (minutes)
+    description: How long to wait for updates before ending the loop
     default: 5
     selector:
       number:
@@ -71,12 +79,14 @@ input:
 
   enable_homekit:
     name: Enable HomeKit Alerts
+    description: Send notifications to HomeKit devices
     default: true
     selector:
       boolean: {}
 
   critical_alert:
     name: Enable Critical Alerts
+    description: Send notifications as critical alerts
     default: false
     selector:
       boolean: {}
