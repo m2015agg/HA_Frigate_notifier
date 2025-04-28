@@ -106,15 +106,15 @@ variables:
   payload: "{{ trigger.payload_json }}"
   full_event_id: "{{ payload.after.id }}"
   event_id: "{{ full_event_id[-5:] }}"
-  cameras: !input cameras
-  notify_device: !input notify_device
-  loiter_threshold: !input loiter_threshold
-  max_loiter_time: !input max_loiter_time
-  base_url: !input base_url
-  zone_settings: !input zone_settings
-  timeout: !input timeout
-  enable_homekit: !input enable_homekit
-  critical_alert: !input critical_alert
+  cameras: "{{ input.cameras }}"
+  notify_device: "{{ input.notify_device }}"
+  loiter_threshold: "{{ input.loiter_threshold }}"
+  max_loiter_time: "{{ input.max_loiter_time }}"
+  base_url: "{{ input.base_url }}"
+  zone_settings: "{{ input.zone_settings }}"
+  timeout: "{{ input.timeout }}"
+  enable_homekit: "{{ input.enable_homekit }}"
+  critical_alert: "{{ input.critical_alert }}"
 
   # parse zone_settings into a dict of { zone: {loitering_time: seconds} }
   zone_config: >-
