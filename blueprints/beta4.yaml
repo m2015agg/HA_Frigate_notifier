@@ -95,7 +95,7 @@ mode: single
 
 trigger:
   - platform: mqtt
-    topic: !input mqtt_topic
+    topic: "{{ input.mqtt_topic }}"
     id: frigate-new
     value_template: >-
       {% set t = value_json.type|default('') %}
@@ -167,7 +167,7 @@ action:
                     message: >-
                       Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
                     target:
-                      - !input notify_device
+                      - "{{ input.notify_device }}"
                     data:
                       tag: "{{ event_id }}"
                       image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
@@ -191,12 +191,12 @@ action:
         # 2. Wait for the next update or final end
         - wait_for_trigger:
             - trigger: mqtt
-              topic: "{{ mqtt_topic }}"
+              topic: "{{ input.mqtt_topic }}"
               value_template: >-
                 {{ value_json.after.id == full_event_id
                    and value_json.type in ['update','end'] }}
           timeout:
-            minutes: "{{ timeout }}"
+            minutes: "{{ input.timeout }}"
           continue_on_timeout: false
 
         # drop out if we timed out
@@ -213,7 +213,7 @@ action:
                  if update_payload.after.end_time else
                  (update_payload.after.frame_time - update_payload.after.start_time)|int }}
             update_loiter_cross: >-
-              {% set thr = loiter_threshold %}
+              {% set thr = input.loiter_threshold %}
               {% for z in update_zones %}
                 {% if z in zone_config %}
                   {% set thr = zone_config[z].loitering_time %}
@@ -248,16 +248,16 @@ action:
                         Duration: {{ update_duration }}s.
                       {% endif %}
                     target:
-                      - !input notify_device
+                      - "{{ input.notify_device }}"
                     data:
                       tag: "{{ event_id }}"
-                      image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-                      clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                      image: "{{ input.base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
+                      clickAction: "{{ input.base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
                       importance: high
                       priority: high
-                      critical: "{{ critical_alert }}"
+                      critical: "{{ input.critical_alert }}"
                 - choose:
-                    - conditions: "{{ enable_homekit }}"
+                    - conditions: "{{ input.enable_homekit }}"
                       sequence:
                         - service: input_boolean.turn_on
                           target:
