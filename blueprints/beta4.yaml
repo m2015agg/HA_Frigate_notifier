@@ -1,16 +1,15 @@
 blueprint:
   name: Hybrid Frigate Loiter & Motion Notifications (Option A)
-  source_url: "https://raw.githubusercontent.com/m2015agg/HA_Frigate_notifier/main/blueprints/beta4.yaml"
   description: >
     Spawn a single loop on each new Frigate event for watched cameras.
     Inside that loop we send the first "threshold crossed" notice,
     then wait for updates (or end) and send only changes or the final end.
   domain: automation
+  source_url: "https://raw.githubusercontent.com/m2015agg/HA_Frigate_notifier/main/blueprints/beta4.yaml"
 
 input:
   cameras:
     name: Cameras
-    description: Select the Frigate cameras to monitor
     selector:
       entity:
         integration: frigate
@@ -19,7 +18,6 @@ input:
 
   notify_device:
     name: Mobile Device
-    description: Select a device that runs the official Home Assistant app to receive notifications
     selector:
       device:
         filter:
@@ -27,7 +25,6 @@ input:
 
   loiter_threshold:
     name: Loiter Threshold (seconds)
-    description: Seconds an object must remain in a zone to trigger a notification
     default: 15
     selector:
       number:
@@ -37,7 +34,6 @@ input:
 
   max_loiter_time:
     name: Maximum Loiter Time (seconds)
-    description: Maximum time to track an object (0 for no limit)
     default: 61
     selector:
       number:
@@ -47,21 +43,18 @@ input:
 
   mqtt_topic:
     name: MQTT Topic
-    description: Topic where Frigate publishes detection events
     default: frigate/events
     selector:
       text: {}
 
   base_url:
     name: Home Assistant URL
-    description: External URL for clips/snapshots (omit trailing slash)
     default: ""
     selector:
       text: {}
 
   zone_settings:
     name: Zone Settings (YAML)
-    description: Optional YAML configuration for zone-specific loitering times
     default: ""
     selector:
       text:
@@ -69,7 +62,6 @@ input:
 
   timeout:
     name: Update Timeout (minutes)
-    description: How long to wait for updates before ending the loop
     default: 5
     selector:
       number:
@@ -79,14 +71,12 @@ input:
 
   enable_homekit:
     name: Enable HomeKit Alerts
-    description: Send notifications to HomeKit devices
     default: true
     selector:
       boolean: {}
 
   critical_alert:
     name: Enable Critical Alerts
-    description: Send notifications as critical alerts
     default: false
     selector:
       boolean: {}
@@ -95,7 +85,7 @@ mode: single
 
 trigger:
   - platform: mqtt
-    topic: "{{ input.mqtt_topic }}"
+    topic: !input mqtt_topic
     id: frigate-new
     value_template: >-
       {% set t = value_json.type|default('') %}
@@ -106,15 +96,15 @@ variables:
   payload: "{{ trigger.payload_json }}"
   full_event_id: "{{ payload.after.id }}"
   event_id: "{{ full_event_id[-5:] }}"
-  cameras: "{{ input.cameras }}"
-  notify_device: "{{ input.notify_device }}"
-  loiter_threshold: "{{ input.loiter_threshold }}"
-  max_loiter_time: "{{ input.max_loiter_time }}"
-  base_url: "{{ input.base_url }}"
-  zone_settings: "{{ input.zone_settings }}"
-  timeout: "{{ input.timeout }}"
-  enable_homekit: "{{ input.enable_homekit }}"
-  critical_alert: "{{ input.critical_alert }}"
+  cameras: !input cameras
+  notify_device: !input notify_device
+  loiter_threshold: !input loiter_threshold
+  max_loiter_time: !input max_loiter_time
+  base_url: !input base_url
+  zone_settings: !input zone_settings
+  timeout: !input timeout
+  enable_homekit: !input enable_homekit
+  critical_alert: !input critical_alert
 
   # parse zone_settings into a dict of { zone: {loitering_time: seconds} }
   zone_config: >-
@@ -167,7 +157,7 @@ action:
                     message: >-
                       Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
                     target:
-                      - "{{ input.notify_device }}"
+                      - !input notify_device
                     data:
                       tag: "{{ event_id }}"
                       image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
@@ -191,12 +181,12 @@ action:
         # 2. Wait for the next update or final end
         - wait_for_trigger:
             - trigger: mqtt
-              topic: "{{ input.mqtt_topic }}"
+              topic: "{{ mqtt_topic }}"
               value_template: >-
                 {{ value_json.after.id == full_event_id
                    and value_json.type in ['update','end'] }}
           timeout:
-            minutes: "{{ input.timeout }}"
+            minutes: "{{ timeout }}"
           continue_on_timeout: false
 
         # drop out if we timed out
@@ -213,7 +203,7 @@ action:
                  if update_payload.after.end_time else
                  (update_payload.after.frame_time - update_payload.after.start_time)|int }}
             update_loiter_cross: >-
-              {% set thr = input.loiter_threshold %}
+              {% set thr = loiter_threshold %}
               {% for z in update_zones %}
                 {% if z in zone_config %}
                   {% set thr = zone_config[z].loitering_time %}
@@ -248,16 +238,16 @@ action:
                         Duration: {{ update_duration }}s.
                       {% endif %}
                     target:
-                      - "{{ input.notify_device }}"
+                      - !input notify_device
                     data:
                       tag: "{{ event_id }}"
-                      image: "{{ input.base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-                      clickAction: "{{ input.base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                      image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
+                      clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
                       importance: high
                       priority: high
-                      critical: "{{ input.critical_alert }}"
+                      critical: "{{ critical_alert }}"
                 - choose:
-                    - conditions: "{{ input.enable_homekit }}"
+                    - conditions: "{{ enable_homekit }}"
                       sequence:
                         - service: input_boolean.turn_on
                           target:
@@ -268,16 +258,6 @@ action:
                           target:
                             entity_id: >
                               input_boolean.frigate_{{ camera_id|lower }}_alert
-                # Update state variables after sending notification
-                - variables:
-                    current_zones: "{{ update_zones }}"
-                    loiter_cross: "{{ update_loiter_cross }}"
-                    duration: "{{ update_duration }}"
 
-      # 5. Stop looping once Frigate sends the "end" for this event or after sending any notification
-      until: >-
-        {{ wait.trigger.payload_json.type == 'end'
-           or (update_type != 'end'
-               and (update_zones != current_zones
-                    or update_loiter_cross != loiter_cross
-                    or update_duration != duration)) }}
+      # 5. Stop looping once Frigate sends the "end" for this event
+      until: "{{ wait.trigger.payload_json.type == 'end' }}"
