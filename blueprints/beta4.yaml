@@ -3,7 +3,7 @@ blueprint:
   source_url: "https://raw.githubusercontent.com/m2015agg/HA_Frigate_notifier/main/blueprints/beta4.yaml"
   description: >
     Spawn a single loop on each new Frigate event for watched cameras.
-    Inside that loop we send the first “threshold crossed” notice,
+    Inside that loop we send the first "threshold crossed" notice,
     then wait for updates (or end) and send only changes or the final end.
   domain: automation
 
@@ -121,7 +121,7 @@ variables:
     {% endif %}
     {{ cfg }}
 
-  # initial values from the “new” payload
+  # initial values from the "new" payload
   camera_id: "{{ payload.after.camera }}"
   current_zones: "{{ payload.after.current_zones }}"
   entered_zones: "{{ payload.after.entered_zones }}"
@@ -258,6 +258,16 @@ action:
                           target:
                             entity_id: >
                               input_boolean.frigate_{{ camera_id|lower }}_alert
+                # Update state variables after sending notification
+                - variables:
+                    current_zones: "{{ update_zones }}"
+                    loiter_cross: "{{ update_loiter_cross }}"
+                    duration: "{{ update_duration }}"
 
-      # 5. Stop looping once Frigate sends the “end” for this event
-      until: "{{ wait.trigger.payload_json.type == 'end' }}"
+      # 5. Stop looping once Frigate sends the "end" for this event or after sending any notification
+      until: >-
+        {{ wait.trigger.payload_json.type == 'end'
+           or (update_type != 'end'
+               and (update_zones != current_zones
+                    or update_loiter_cross != loiter_cross
+                    or update_duration != duration)) }}
