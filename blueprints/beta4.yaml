@@ -91,7 +91,7 @@ trigger:
     value_template: >-
       {% set t = value_json.type|default('') %}
       {% set cam = 'camera.' ~ (value_json.after.camera|lower) %}
-      {{ t == 'new' and cam in (cameras|map('lower')|list) }}
+      {{ t in ['new', 'update', 'end'] and cam in (cameras|map('lower')|list) }}
 
 variables:
   payload: "{{ trigger.payload_json }}"
