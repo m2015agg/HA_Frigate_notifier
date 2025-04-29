@@ -5,81 +5,82 @@ blueprint:
     Spawn a single loop on each new Frigate event for watched cameras.
     Inside that loop we send the first "threshold crossed" notice,
     then wait for updates (or end) and send only changes or the final end. test
+    
   domain: automation
+  input:
+    cameras:
+      name: Cameras
+      selector:
+        entity:
+          integration: frigate
+          domain:
+            - camera
+          multiple: true
 
-input:
-  cameras:
-    name: Cameras
-    selector:
-      entity:
-        integration: frigate
-        domain: camera
-        multiple: true
+    notify_device:
+      name: Mobile Device
+      selector:
+        device:
+          filter:
+            integration: mobile_app
 
-  notify_device:
-    name: Mobile Device
-    selector:
-      device:
-        filter:
-          integration: mobile_app
+    loiter_threshold:
+      name: Loiter Threshold (seconds)
+      default: 15
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: seconds
 
-  loiter_threshold:
-    name: Loiter Threshold (seconds)
-    default: 15
-    selector:
-      number:
-        min: 0
-        max: 3600
-        unit_of_measurement: seconds
+    max_loiter_time:
+      name: Maximum Loiter Time (seconds)
+      default: 61
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: seconds
 
-  max_loiter_time:
-    name: Maximum Loiter Time (seconds)
-    default: 61
-    selector:
-      number:
-        min: 0
-        max: 3600
-        unit_of_measurement: seconds
+    mqtt_topic:
+      name: MQTT Topic
+      default: frigate/events
+      selector:
+        text: {}
 
-  mqtt_topic:
-    name: MQTT Topic
-    default: frigate/events
-    selector:
-      text: {}
+    base_url:
+      name: Home Assistant URL
+      default: ""
+      selector:
+        text: {}
 
-  base_url:
-    name: Home Assistant URL
-    default: ""
-    selector:
-      text: {}
+    zone_settings:
+      name: Zone Settings (YAML)
+      default: ""
+      selector:
+        text:
+          multiline: true
 
-  zone_settings:
-    name: Zone Settings (YAML)
-    default: ""
-    selector:
-      text:
-        multiline: true
+    timeout:
+      name: Update Timeout (minutes)
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: minutes
 
-  timeout:
-    name: Update Timeout (minutes)
-    default: 5
-    selector:
-      number:
-        min: 1
-        max: 60
-        unit_of_measurement: minutes
+    enable_homekit:
+      name: Enable HomeKit Alerts
+      default: true
+      selector:
+        boolean: {}
 
-  enable_homekit:
-    name: Enable HomeKit Alerts
-    default: true
-    selector:
-      boolean: {}
-
-  critical_alert:
-    name: Enable Critical Alerts
-    default: false
-    selector:
-      boolean: {}
+    critical_alert:
+      name: Enable Critical Alerts
+      default: false
+      selector:
+        boolean: {}
 
 mode: single
 
