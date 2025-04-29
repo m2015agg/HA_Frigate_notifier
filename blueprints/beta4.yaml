@@ -1,6 +1,6 @@
 blueprint:
   name: Hybrid Frigate Loiter & Motion Notifications (Option A)
-  source_url: "https://rttaw.githubusercontent.com/m2015agg/HA_Frigate_notifier/main/blueprints/beta4.yaml"
+  source_url: "https://github.com/m2015agg/HA_Frigate_notifier/blob/main/blueprints/beta4.yaml"
   description: >
     Spawn a single loop on each new Frigate event for watched cameras.
     Inside that loop we send the first "threshold crossed" notice,
@@ -265,5 +265,5 @@ action:
                             entity_id: >
                               input_boolean.frigate_{{ camera_id|lower }}_alert
 
-      # 5. Stop looping once Frigate sends the "end" for this event
-      until: "{{ wait.trigger.payload_json.type == 'end' }}"
+      # 5. Stop looping once Frigate sends the "end" for this event or times out
+      until: "{{ wait.trigger is none or wait.trigger.payload_json.type == 'end' }}"
