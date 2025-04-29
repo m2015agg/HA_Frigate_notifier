@@ -152,6 +152,8 @@ action:
             - conditions:
                 - condition: template
                   value_template: "{{ should_notify }}"
+                - condition: template
+                  value_template: "{{ states('sensor.frigate_snapshot_available') == 'true' }}"
               sequence:
                 - service: notify.mobile_app
                   data:
@@ -178,6 +180,7 @@ action:
                           target:
                             entity_id: >
                               input_boolean.frigate_{{ camera_id|lower }}_alert
+                - stop: "Exit loop after first notification"
 
         # 2. Wait for the next update or final end
         - wait_for_trigger:
@@ -222,6 +225,8 @@ action:
                        or update_zones != current_zones
                        or update_loiter_cross != loiter_cross
                        or update_duration != duration }}
+                - condition: template
+                  value_template: "{{ states('sensor.frigate_snapshot_available') == 'true' }}"
               sequence:
                 - service: notify.mobile_app
                   data:
