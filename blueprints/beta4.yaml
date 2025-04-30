@@ -13,8 +13,7 @@ blueprint:
       selector:
         entity:
           integration: frigate
-          domain:
-            - camera
+          domain: camera
           multiple: true
 
     notify_device:
