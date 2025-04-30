@@ -130,6 +130,8 @@ variables:
     {{ (payload.after.end_time - payload.after.start_time)|int
        if payload.after.end_time else
        (payload.after.frame_time - payload.after.start_time)|int }}
+  
+  # Check for loitering condition
   loiter_cross: >-
     {% set thr = loiter_threshold %}
     {% for z in current_zones %}
@@ -142,7 +144,12 @@ variables:
        and duration >= thr
        and (max_loiter_time == 0 or duration <= max_loiter_time) }}
 
-  should_notify: "{{ loiter_cross }}"
+  # Check for motionless condition
+  motionless_cross: >-
+    {{ payload.after.motionless_count is defined 
+       and payload.after.motionless_count > 45 }}
+
+  should_notify: "{{ loiter_cross or motionless_cross }}"
 
 action:
   - repeat:
@@ -152,13 +159,17 @@ action:
             - conditions:
                 - condition: template
                   value_template: "{{ should_notify }}"
-                - condition: template
-                  value_template: "{{ states('sensor.frigate_snapshot_available') == 'true' }}"
               sequence:
                 - service: notify.mobile_app
                   data:
                     message: >-
-                      Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
+                      {% if loiter_cross %}
+                        Loitering detected on {{ camera_id }} – Object has been present for {{ duration }}s.
+                      {% elif motionless_cross %}
+                        Motionless object detected on {{ camera_id }} – Object stationary for {{ duration }}s.
+                      {% else %}
+                        Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
+                      {% endif %}
                     target:
                       - !input notify_device
                     data:
@@ -180,7 +191,14 @@ action:
                           target:
                             entity_id: >
                               input_boolean.frigate_{{ camera_id|lower }}_alert
-                - stop: "Exit loop after first notification"
+                - service: logbook.log
+                  data:
+                    name: "Frigate Event"
+                    message: >
+                      Initial notification sent - Event {{ event_id }} ({{ camera_id }})
+                      Duration: {{ duration }}s
+                      Loitering: {{ loiter_cross }}
+                      Motionless: {{ motionless_cross }}
 
         # 2. Wait for the next update or final end
         - wait_for_trigger:
@@ -192,6 +210,20 @@ action:
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
+
+        # Log if we timed out
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: "{{ wait.trigger is none }}"
+              sequence:
+                - service: logbook.log
+                  data:
+                    name: "Frigate Event"
+                    message: >
+                      Timeout - Event {{ event_id }} ({{ camera_id }})
+                      Duration: {{ duration }}s
+                      Timeout: {{ timeout }} minutes
 
         # drop out if we timed out
         - condition: template
@@ -215,6 +247,9 @@ action:
                 {% endif %}
               {% endfor %}
               {{ update_zones|length > 0 and update_duration >= thr }}
+            update_motionless_cross: >-
+              {{ update_payload.after.motionless_count is defined 
+                 and update_payload.after.motionless_count > 45 }}
 
         # 4. Notify only on changes or final end
         - choose:
@@ -224,9 +259,8 @@ action:
                     {{ update_type == 'end'
                        or update_zones != current_zones
                        or update_loiter_cross != loiter_cross
+                       or update_motionless_cross != motionless_cross
                        or update_duration != duration }}
-                - condition: template
-                  value_template: "{{ states('sensor.frigate_snapshot_available') == 'true' }}"
               sequence:
                 - service: notify.mobile_app
                   data:
@@ -237,6 +271,9 @@ action:
                         Update on {{ camera_id }}:
                         {% if update_loiter_cross != loiter_cross %}
                           Loitering status changed.
+                        {% endif %}
+                        {% if update_motionless_cross != motionless_cross %}
+                          Motionless status changed.
                         {% endif %}
                         {% if update_zones != current_zones %}
                           Zones now: {{ update_zones | join(', ') }}.
@@ -264,6 +301,27 @@ action:
                           target:
                             entity_id: >
                               input_boolean.frigate_{{ camera_id|lower }}_alert
+                - service: logbook.log
+                  data:
+                    name: "Frigate Event"
+                    message: >
+                      Update notification sent - Event {{ event_id }} ({{ camera_id }})
+                      Type: {{ update_type }}
+                      Duration: {{ update_duration }}s
+                      Changes: {% if update_zones != current_zones %}zones{% endif %}
+                              {% if update_loiter_cross != loiter_cross %}loitering{% endif %}
+                              {% if update_motionless_cross != motionless_cross %}motionless{% endif %}
 
       # 5. Stop looping once Frigate sends the "end" for this event or times out
       until: "{{ wait.trigger is none or wait.trigger.payload_json.type == 'end' }}"
+
+# Final log entry when automation ends
+- service: logbook.log
+  data:
+    name: "Frigate Event"
+    message: >
+      Completed - Event {{ event_id }} ({{ camera_id }})
+      Final duration: {{ duration }}s
+      Reason: {% if wait.trigger is none %}Timeout{% else %}End event{% endif %}
+      Loitering: {{ loiter_cross }}
+      Motionless: {{ motionless_cross }}
