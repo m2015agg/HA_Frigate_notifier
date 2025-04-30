@@ -162,6 +162,15 @@ action:
                 - condition: template
                   value_template: "{{ should_notify }}"
               sequence:
+                - service: logbook.log
+                  data:
+                    name: "Frigate Event"
+                    message: >
+                      Attempting notification - Event {{ event_id }} ({{ camera_id }})
+                      Device ID: {{ notify_device }}
+                      Should Notify: {{ should_notify }}
+                      Loitering: {{ loiter_cross }}
+                      Motionless: {{ motionless_cross }}
                 - service: notify.mobile_app
                   target:
                     device_id: "{{ notify_device }}"
@@ -181,6 +190,14 @@ action:
                       importance: high
                       priority: high
                       critical: "{{ critical_alert }}"
+                - service: logbook.log
+                  data:
+                    name: "Frigate Event"
+                    message: >
+                      Notification sent - Event {{ event_id }} ({{ camera_id }})
+                      Duration: {{ duration }}s
+                      Loitering: {{ loiter_cross }}
+                      Motionless: {{ motionless_cross }}
                 - choose:
                     - conditions: "{{ enable_homekit }}"
                       sequence:
@@ -193,14 +210,6 @@ action:
                           target:
                             entity_id: >
                               input_boolean.frigate_{{ camera_id|lower }}_alert
-                - service: logbook.log
-                  data:
-                    name: "Frigate Event"
-                    message: >
-                      Initial notification sent - Event {{ event_id }} ({{ camera_id }})
-                      Duration: {{ duration }}s
-                      Loitering: {{ loiter_cross }}
-                      Motionless: {{ motionless_cross }}
 
         # 2. Wait for the next update or final end
         - wait_for_trigger:
