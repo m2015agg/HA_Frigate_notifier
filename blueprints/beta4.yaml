@@ -46,7 +46,10 @@ blueprint:
       name: MQTT Topic
       default: frigate/events
       selector:
-        text: {}
+        text:
+          pattern: "^[^#+]+$"
+          mode: box
+      required: true
 
     base_url:
       name: Home Assistant URL
@@ -89,8 +92,8 @@ trigger:
     topic: !input mqtt_topic
     id: frigate-new
     value_template: >-
-      {% set t = value_json.type|default('') %}
-      {% set cam = 'camera.' ~ (value_json.after.camera|lower) %}
+      {% set t = trigger.payload_json.type|default('') %}
+      {% set cam = 'camera.' ~ (trigger.payload_json.after.camera|lower) %}
       {{ t in ['new', 'update', 'end'] and cam in (cameras|map('lower')|list) }}
 
 variables:
@@ -106,6 +109,7 @@ variables:
   timeout: !input timeout
   enable_homekit: !input enable_homekit
   critical_alert: !input critical_alert
+  mqtt_topic: !input mqtt_topic
 
   # parse zone_settings into a dict of { zone: {loitering_time: seconds} }
   zone_config: >-
@@ -312,7 +316,12 @@ action:
                               {% if update_loiter_cross != loiter_cross %}loitering{% endif %}
                               {% if update_motionless_cross != motionless_cross %}motionless{% endif %}
       # 5. Stop looping once Frigate sends the "end" for this event or times out
-      until: "{{ wait.trigger is none or wait.trigger.payload_json.type == 'end' }}"
+      until: >-
+        {% if wait.trigger is none %}
+          true
+        {% else %}
+          {{ wait.trigger.payload_json.type == 'end' }}
+        {% endif %}
   - service: logbook.log
     data:
       name: "Frigate Event"
