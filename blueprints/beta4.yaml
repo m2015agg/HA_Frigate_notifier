@@ -46,10 +46,7 @@ blueprint:
       name: MQTT Topic
       default: frigate/events
       selector:
-        text:
-          pattern: "^[^#+]+$"
-          mode: box
-      required: true
+        text: {}
 
     base_url:
       name: Home Assistant URL
