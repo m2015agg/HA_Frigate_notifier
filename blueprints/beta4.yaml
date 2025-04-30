@@ -20,9 +20,10 @@ blueprint:
     notify_device:
       name: Mobile Device
       selector:
-        device:
-          filter:
+        target:
+          entity:
             integration: mobile_app
+          multiple: false
 
     loiter_threshold:
       name: Loiter Threshold (seconds)
@@ -161,7 +162,7 @@ action:
                 - condition: template
                   value_template: "{{ should_notify }}"
               sequence:
-                - service: notify.mobile_app
+                - service: notify.mobile_app_{{ notify_device }}
                   data:
                     message: >-
                       {% if loiter_cross %}
@@ -171,8 +172,6 @@ action:
                       {% else %}
                         Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
                       {% endif %}
-                    target:
-                      - !input notify_device
                     data:
                       tag: "{{ event_id }}"
                       image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
@@ -263,7 +262,7 @@ action:
                        or update_motionless_cross != motionless_cross
                        or update_duration != duration }}
               sequence:
-                - service: notify.mobile_app
+                - service: notify.mobile_app_{{ notify_device }}
                   data:
                     message: >-
                       {% if update_type == 'end' %}
@@ -281,8 +280,6 @@ action:
                         {% endif %}
                         Duration: {{ update_duration }}s.
                       {% endif %}
-                    target:
-                      - !input notify_device
                     data:
                       tag: "{{ event_id }}"
                       image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
