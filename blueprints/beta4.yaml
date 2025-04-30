@@ -258,7 +258,7 @@ action:
             - conditions:
                 - condition: template
                   value_template: >-
-                    {{ update_type == 'end'
+                    {{ (update_type == 'end' and should_notify)
                        or update_zones != current_zones
                        or update_loiter_cross != loiter_cross
                        or update_motionless_cross != motionless_cross
