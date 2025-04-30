@@ -206,8 +206,8 @@ action:
             - trigger: mqtt
               topic: "{{ mqtt_topic }}"
               value_template: >-
-                {{ value_json.after.id == full_event_id
-                   and value_json.type in ['update','end'] }}
+                {{ trigger.payload_json.after.id == full_event_id
+                   and trigger.payload_json.type in ['update','end'] }}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
