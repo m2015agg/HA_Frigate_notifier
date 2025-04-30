@@ -23,7 +23,6 @@ blueprint:
         target:
           entity:
             integration: mobile_app
-          multiple: false
 
     loiter_threshold:
       name: Loiter Threshold (seconds)
