@@ -20,9 +20,8 @@ blueprint:
     notify_device:
       name: Mobile Device
       selector:
-        target:
-          entity:
-            integration: mobile_app
+        device:
+          integration: mobile_app
 
     loiter_threshold:
       name: Loiter Threshold (seconds)
