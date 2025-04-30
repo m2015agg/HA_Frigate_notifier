@@ -162,7 +162,9 @@ action:
                 - condition: template
                   value_template: "{{ should_notify }}"
               sequence:
-                - service: notify.mobile_app_{{ notify_device }}
+                - service: notify.mobile_app
+                  target:
+                    device_id: "{{ notify_device }}"
                   data:
                     message: >-
                       {% if loiter_cross %}
@@ -262,7 +264,9 @@ action:
                        or update_motionless_cross != motionless_cross
                        or update_duration != duration }}
               sequence:
-                - service: notify.mobile_app_{{ notify_device }}
+                - service: notify.mobile_app
+                  target:
+                    device_id: "{{ notify_device }}"
                   data:
                     message: >-
                       {% if update_type == 'end' %}
