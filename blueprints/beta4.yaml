@@ -313,4 +313,12 @@ action:
                               {% if update_motionless_cross != motionless_cross %}motionless{% endif %}
       # 5. Stop looping once Frigate sends the "end" for this event or times out
       until: "{{ wait.trigger is none or wait.trigger.payload_json.type == 'end' }}"
-
+  - service: logbook.log
+    data:
+      name: "Frigate Event"
+      message: >
+        Completed - Event {{ event_id }} ({{ camera_id }})
+        Final duration: {{ duration }}s
+        Reason: {% if wait.trigger is none %}Timeout{% else %}End event{% endif %}
+        Loitering: {{ loiter_cross }}
+        Motionless: {{ motionless_cross }}
