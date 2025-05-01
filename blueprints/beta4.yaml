@@ -187,6 +187,9 @@ action:
                     tag: "{{ event_id }}"
                     image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
                     clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                    tap_action:
+                      action: "URI"
+                      uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
                     importance: "{{ 'low' if initial_notification_sent else 'high' }}"
                     priority: "{{ 'low' if initial_notification_sent else 'high' }}"
                     sound: "{{ 'none' if initial_notification_sent else 'default' }}"
@@ -195,7 +198,7 @@ action:
                       - label: "View Live"
                         action: "URI"
                         uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-                     - label: "View Stream"
+                      - label: "View Stream"
                         action: "URI"
                         uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/master.m3u8"
                 - variables:
@@ -297,6 +300,9 @@ action:
                     tag: "{{ event_id }}"
                     image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
                     clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                    tap_action:
+                      action: "URI"
+                      uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
                     importance: "{{ 'low' if initial_notification_sent else 'high' }}"
                     priority: "{{ 'low' if initial_notification_sent else 'high' }}"
                     sound: "{{ 'none' if initial_notification_sent else 'default' }}"
