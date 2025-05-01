@@ -186,11 +186,7 @@ action:
                   domain: mobile_app
                   type: notify
                   message: >-
-                    {% if should_notify %}
-                      Loitering detected on {{ camera_id }} – Object has been present for {{ duration }}s.
-                    {% else %}
-                      Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
-                    {% endif %}
+                    {% if should_notify %}Loitering detected on {{ camera_id }} – Object has been present for {{ duration }}s.{% else %}Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.{% endif %}
                   data:
                     tag: "{{ event_id }}"
                     title: "Frigate Detection"
@@ -298,10 +294,7 @@ action:
                     {% if update_type == 'end' %}
                       Event ended on {{ camera_id }} – duration {{ update_duration }}s.
                     {% else %}
-                      Update on {{ camera_id }}:
-                      {% if update_zones != current_zones %}Zones now: {{ update_zones | join(', ') }}.{% endif %}
-                      {% if labels_changed %}New object type detected: {{ current_labels }}.{% endif %}
-                      Duration: {{ update_duration }}s.
+                      A {{ current_labels }} {{ 'was detected' }} on the {{ camera_id }} camera.
                     {% endif %}
                   data:
                     tag: "{{ event_id }}"
