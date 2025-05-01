@@ -125,7 +125,7 @@ variables:
     {% endif %}
     {{ cfg }}
 
-  # initial values from the "new" payload
+  # Basic event info
   camera_id: "{{ payload.after.camera }}"
   current_zones: "{{ payload.after.current_zones }}"
   entered_zones: "{{ payload.after.entered_zones }}"
@@ -133,26 +133,56 @@ variables:
     {{ (payload.after.end_time - payload.after.start_time)|int
        if payload.after.end_time else
        (payload.after.frame_time - payload.after.start_time)|int }}
-  
-  # Check for loitering condition
-  loiter_cross: >-
-    {% set thr = loiter_threshold %}
-    {% for z in current_zones %}
-      {% if z in zone_config %}
-        {% set thr = zone_config[z].loitering_time %}
-        {% break %}
+
+  # Zone-specific timing check
+  zone_alert: >-
+    {% set should_alert = false %}
+    {% for zone in current_zones %}
+      {% if zone in zone_config %}
+        {% set threshold = zone_config[zone].loitering_time %}
+        {% if threshold >= 0 and duration >= threshold %}
+          {% set should_alert = true %}
+          {% break %}
+        {% endif %}
+      {% else %}
+        {% if duration >= loiter_threshold %}
+          {% set should_alert = true %}
+          {% break %}
+        {% endif %}
       {% endif %}
     {% endfor %}
-    {{ current_zones|length > 0
-       and duration >= thr
-       and (max_loiter_time == 0 or duration <= max_loiter_time) }}
+    {{ should_alert }}
 
-  # Check for motionless condition
-  motionless_cross: >-
-    {{ payload.after.motionless_count is defined 
-       and payload.after.motionless_count > 45 }}
+  # Only notify if in a zone AND timing threshold met
+  should_notify: >-
+    {{ current_zones|length > 0 and zone_alert }}
 
-  should_notify: "{{ loiter_cross or motionless_cross }}"
+  # Enhanced zone tracking
+  current_zones: "{{ payload.after.current_zones }}"
+  entered_zones: "{{ payload.after.entered_zones }}"
+  zone_history: >-
+    {% if not repeat.first %}
+      {% set history = states('input_text.frigate_zone_history_' ~ event_id) %}
+      {% if history != 'unknown' and history != '' %}
+        {{ history + ',' + (current_zones | join(',')) }}
+      {% else %}
+        {{ current_zones | join(',') }}
+      {% endif %}
+    {% else %}
+      {{ current_zones | join(',') }}
+    {% endif %}
+  
+  # Zone-specific timing
+  zone_durations: >-
+    {% set durations = {} %}
+    {% for zone in entered_zones %}
+      {% set time_in_zone = namespace(value=0) %}
+      {% if zone in current_zones %}
+        {% set time_in_zone.value = duration %}
+      {% endif %}
+      {% set durations = durations | combine({zone: time_in_zone.value}) %}
+    {% endfor %}
+    {{ durations }}
 
 action:
   - repeat:
@@ -170,16 +200,12 @@ action:
                       Attempting notification - Event {{ event_id }} ({{ camera_id }})
                       Device ID: {{ notify_device }}
                       Should Notify: {{ should_notify }}
-                      Loitering: {{ loiter_cross }}
-                      Motionless: {{ motionless_cross }}
                 - device_id: !input notify_device
                   domain: mobile_app
                   type: notify
                   message: >-
-                    {% if loiter_cross %}
+                    {% if should_notify %}
                       Loitering detected on {{ camera_id }} – Object has been present for {{ duration }}s.
-                    {% elif motionless_cross %}
-                      Motionless object detected on {{ camera_id }} – Object stationary for {{ duration }}s.
                     {% else %}
                       Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
                     {% endif %}
@@ -273,10 +299,13 @@ action:
             - conditions:
                 - condition: template
                   value_template: >-
+                    {% set significant_change = 
+                      update_zones != current_zones
+                      or (update_loiter_cross != zone_alert and update_loiter_cross)
+                      or (not zone_alert and update_motionless_cross)
+                    %}
                     {{ (update_type == 'end' and should_notify and not initial_notification_sent)
-                       or update_zones != current_zones
-                       or update_loiter_cross != loiter_cross
-                       or update_motionless_cross != motionless_cross}}
+                       or significant_change }}
               sequence:
                 - device_id: !input notify_device
                   domain: mobile_app
@@ -286,10 +315,10 @@ action:
                       Event ended on {{ camera_id }} – duration {{ update_duration }}s.
                     {% else %}
                       Update on {{ camera_id }}:
-                      {% if update_loiter_cross != loiter_cross %}
+                      {% if update_loiter_cross != zone_alert %}
                          Loitering status changed.
                       {% endif %}
-                      {% if update_motionless_cross != motionless_cross %}
+                      {% if update_motionless_cross != zone_alert %}
                          Motionless status changed.
                       {% endif %}
                       {% if update_zones != current_zones %}
@@ -338,8 +367,8 @@ action:
                       Type: {{ update_type }}
                       Duration: {{ update_duration }}s
                       Changes: {% if update_zones != current_zones %}zones{% endif %}
-                              {% if update_loiter_cross != loiter_cross %}loitering{% endif %}
-                              {% if update_motionless_cross != motionless_cross %}motionless{% endif %}
+                              {% if update_loiter_cross != zone_alert %}loitering{% endif %}
+                              {% if update_motionless_cross != zone_alert %}motionless{% endif %}
       # 5. Stop looping once Frigate sends the "end" for this event or times out
       until: >-
         {% if wait.trigger is none %}
@@ -354,5 +383,5 @@ action:
         Completed - Event {{ event_id }} ({{ camera_id }})
         Final duration: {{ duration }}s
         Reason: {% if wait.trigger is none %}Timeout{% else %}End event{% endif %}
-        Loitering: {{ loiter_cross }}
-        Motionless: {{ motionless_cross }}
+        Loitering: {{ zone_alert }}
+        Motionless: {{ zone_alert }}
