@@ -108,7 +108,8 @@ variables:
   enable_homekit: !input enable_homekit
   critical_alert: !input critical_alert
   mqtt_topic: !input mqtt_topic
-  initial_notification_sent: false 
+  initial_notification_sent: false
+  tracked_labels: []  # Add this to track object labels
 
   # parse zone_settings into a dict of { zone: {loitering_time: seconds} }
   zone_config: >-
@@ -274,6 +275,9 @@ action:
             update_motionless_cross: >-
               {{ update_payload.after.motionless_count is defined 
                  and update_payload.after.motionless_count > 45 }}
+            current_labels: "{{ update_payload.after.label }}"
+            labels_changed: >-
+              {{ current_labels not in tracked_labels }}
 
         # 4. Notify only on changes or final end
         - choose:
@@ -282,8 +286,7 @@ action:
                   value_template: >-
                     {% set significant_change = 
                       update_zones != current_zones
-                      or (update_loiter_cross != zone_alert and update_loiter_cross)
-                      or (not zone_alert and update_motionless_cross)
+                      or labels_changed
                     %}
                     {{ (update_type == 'end' and should_notify and not initial_notification_sent and duration >= loiter_threshold)
                        or significant_change }}
@@ -296,14 +299,11 @@ action:
                       Event ended on {{ camera_id }} – duration {{ update_duration }}s.
                     {% else %}
                       Update on {{ camera_id }}:
-                      {% if update_loiter_cross != zone_alert %}
-                         Loitering status changed.
-                      {% endif %}
-                      {% if update_motionless_cross != zone_alert %}
-                         Motionless status changed.
-                      {% endif %}
                       {% if update_zones != current_zones %}
                          Zones now: {{ update_zones | join(', ') }}.
+                      {% endif %}
+                      {% if labels_changed %}
+                         New object type detected: {{ current_labels }}.
                       {% endif %}
                       Duration: {{ update_duration }}s.
                     {% endif %}
@@ -328,6 +328,7 @@ action:
                         uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/master.m3u8"
                 - variables:
                     initial_notification_sent: true  # Set this after sending
+                    tracked_labels: "{{ tracked_labels + [current_labels] if current_labels not in tracked_labels else tracked_labels }}"
                 - choose:
                     - conditions: "{{ enable_homekit }}"
                       sequence:
@@ -348,8 +349,7 @@ action:
                       Type: {{ update_type }}
                       Duration: {{ update_duration }}s
                       Changes: {% if update_zones != current_zones %}zones{% endif %}
-                              {% if update_loiter_cross != zone_alert %}loitering{% endif %}
-                              {% if update_motionless_cross != zone_alert %}motionless{% endif %}
+                              {% if labels_changed %}object{% endif %}
       # 5. Stop looping once Frigate sends the "end" for this event or times out
       until: >-
         {% if wait.trigger is none %}
