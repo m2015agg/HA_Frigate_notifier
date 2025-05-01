@@ -157,30 +157,11 @@ variables:
   should_notify: >-
     {{ current_zones|length > 0 and zone_alert }}
 
-  # Enhanced zone tracking
-  current_zones: "{{ payload.after.current_zones }}"
-  entered_zones: "{{ payload.after.entered_zones }}"
-  zone_history: >-
-    {% if not repeat.first %}
-      {% set history = states('input_text.frigate_zone_history_' ~ event_id) %}
-      {% if history != 'unknown' and history != '' %}
-        {{ history + ',' + (current_zones | join(',')) }}
-      {% else %}
-        {{ current_zones | join(',') }}
-      {% endif %}
-    {% else %}
-      {{ current_zones | join(',') }}
-    {% endif %}
-  
-  # Zone-specific timing
+  # Zone timing for current zones
   zone_durations: >-
     {% set durations = {} %}
-    {% for zone in entered_zones %}
-      {% set time_in_zone = namespace(value=0) %}
-      {% if zone in current_zones %}
-        {% set time_in_zone.value = duration %}
-      {% endif %}
-      {% set durations = durations | combine({zone: time_in_zone.value}) %}
+    {% for zone in current_zones %}
+      {% set durations = durations | combine({zone: duration}) %}
     {% endfor %}
     {{ durations }}
 
