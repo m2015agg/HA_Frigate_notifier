@@ -185,6 +185,7 @@ action:
                     {% endif %}
                   data:
                     tag: "{{ event_id }}"
+                    title: "Frigate Detection"
                     image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
                     clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
                     tap_action:
@@ -298,6 +299,7 @@ action:
                     {% endif %}
                   data:
                     tag: "{{ event_id }}"
+                    title: "Frigate Detection Update"
                     image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
                     clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
                     tap_action:
