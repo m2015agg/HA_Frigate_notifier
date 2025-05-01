@@ -108,6 +108,7 @@ variables:
   enable_homekit: !input enable_homekit
   critical_alert: !input critical_alert
   mqtt_topic: !input mqtt_topic
+  initial_notification_sent: false 
 
   # parse zone_settings into a dict of { zone: {loitering_time: seconds} }
   zone_config: >-
@@ -171,33 +172,26 @@ action:
                       Should Notify: {{ should_notify }}
                       Loitering: {{ loiter_cross }}
                       Motionless: {{ motionless_cross }}
-                - service: notify.mobile_app
-                  target:
-                    device_id: "{{ notify_device }}"
+                - device_id: !input notify_device
+                  domain: mobile_app
+                  type: notify
+                  message: >-
+                    {% if loiter_cross %}
+                      Loitering detected on {{ camera_id }} – Object has been present for {{ duration }}s.
+                    {% elif motionless_cross %}
+                      Motionless object detected on {{ camera_id }} – Object stationary for {{ duration }}s.
+                    {% else %}
+                      Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
+                    {% endif %}
                   data:
-                    message: >-
-                      {% if loiter_cross %}
-                        Loitering detected on {{ camera_id }} – Object has been present for {{ duration }}s.
-                      {% elif motionless_cross %}
-                        Motionless object detected on {{ camera_id }} – Object stationary for {{ duration }}s.
-                      {% else %}
-                        Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.
-                      {% endif %}
-                    data:
-                      tag: "{{ event_id }}"
-                      image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-                      clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-                      importance: high
-                      priority: high
-                      critical: "{{ critical_alert }}"
-                - service: logbook.log
-                  data:
-                    name: "Frigate Event"
-                    message: >
-                      Notification sent - Event {{ event_id }} ({{ camera_id }})
-                      Duration: {{ duration }}s
-                      Loitering: {{ loiter_cross }}
-                      Motionless: {{ motionless_cross }}
+                    tag: "{{ event_id }}"
+                    image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
+                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                    importance: "{{ 'low' if initial_notification_sent else 'high' }}"
+                    priority: "{{ 'low' if initial_notification_sent else 'high' }}"
+                    critical: "{{ critical_alert }}"
+                - variables:
+                    initial_notification_sent: true  # Set this after sending
                 - choose:
                     - conditions: "{{ enable_homekit }}"
                       sequence:
@@ -273,33 +267,34 @@ action:
                        or update_motionless_cross != motionless_cross
                        or update_duration != duration }}
               sequence:
-                - service: notify.mobile_app
-                  target:
-                    device_id: "{{ notify_device }}"
-                  data:
-                    message: >-
-                      {% if update_type == 'end' %}
-                        Event ended on {{ camera_id }} – duration {{ update_duration }}s.
-                      {% else %}
-                        Update on {{ camera_id }}:
-                        {% if update_loiter_cross != loiter_cross %}
-                          Loitering status changed.
-                        {% endif %}
-                        {% if update_motionless_cross != motionless_cross %}
-                          Motionless status changed.
-                        {% endif %}
-                        {% if update_zones != current_zones %}
-                          Zones now: {{ update_zones | join(', ') }}.
-                        {% endif %}
-                        Duration: {{ update_duration }}s.
+                - device_id: !input notify_device
+                  domain: mobile_app
+                  type: notify
+                  message: >-
+                    {% if update_type == 'end' %}
+                      Event ended on {{ camera_id }} – duration {{ update_duration }}s.
+                    {% else %}
+                      Update on {{ camera_id }}:
+                      {% if update_loiter_cross != loiter_cross %}
+                         Loitering status changed.
                       {% endif %}
-                    data:
-                      tag: "{{ event_id }}"
-                      image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-                      clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-                      importance: high
-                      priority: high
-                      critical: "{{ critical_alert }}"
+                      {% if update_motionless_cross != motionless_cross %}
+                         Motionless status changed.
+                      {% endif %}
+                      {% if update_zones != current_zones %}
+                         Zones now: {{ update_zones | join(', ') }}.
+                      {% endif %}
+                      Duration: {{ update_duration }}s.
+                    {% endif %}
+                  data:
+                    tag: "{{ event_id }}"
+                    image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
+                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                    importance: "{{ 'low' if initial_notification_sent else 'high' }}"
+                    priority: "{{ 'low' if initial_notification_sent else 'high' }}"
+                    critical: "{{ critical_alert }}"
+                - variables:
+                    initial_notification_sent: true  # Set this after sending
                 - choose:
                     - conditions: "{{ enable_homekit }}"
                       sequence:
