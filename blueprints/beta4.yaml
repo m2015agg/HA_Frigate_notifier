@@ -299,12 +299,8 @@ action:
                       Event ended on {{ camera_id }} – duration {{ update_duration }}s.
                     {% else %}
                       Update on {{ camera_id }}:
-                      {% if update_zones != current_zones %}
-                         Zones now: {{ update_zones | join(', ') }}.
-                      {% endif %}
-                      {% if labels_changed %}
-                         New object type detected: {{ current_labels }}.
-                      {% endif %}
+                      {% if update_zones != current_zones %}Zones now: {{ update_zones | join(', ') }}.{% endif %}
+                      {% if labels_changed %}New object type detected: {{ current_labels }}.{% endif %}
                       Duration: {{ update_duration }}s.
                     {% endif %}
                   data:
