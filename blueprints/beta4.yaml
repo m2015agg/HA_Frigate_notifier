@@ -189,7 +189,15 @@ action:
                     clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
                     importance: "{{ 'low' if initial_notification_sent else 'high' }}"
                     priority: "{{ 'low' if initial_notification_sent else 'high' }}"
+                    sound: "{{ 'none' if initial_notification_sent else 'default' }}"
                     critical: "{{ critical_alert }}"
+                    actions:
+                      - label: "View Live"
+                        action: "URI"
+                        uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                     - label: "View Stream"
+                        action: "URI"
+                        uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/master.m3u8"
                 - variables:
                     initial_notification_sent: true  # Set this after sending
                 - choose:
@@ -261,11 +269,10 @@ action:
             - conditions:
                 - condition: template
                   value_template: >-
-                    {{ (update_type == 'end' and should_notify)
+                    {{ (update_type == 'end' and should_notify and not initial_notification_sent)
                        or update_zones != current_zones
                        or update_loiter_cross != loiter_cross
-                       or update_motionless_cross != motionless_cross
-                       or update_duration != duration }}
+                       or update_motionless_cross != motionless_cross}}
               sequence:
                 - device_id: !input notify_device
                   domain: mobile_app
@@ -292,7 +299,15 @@ action:
                     clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
                     importance: "{{ 'low' if initial_notification_sent else 'high' }}"
                     priority: "{{ 'low' if initial_notification_sent else 'high' }}"
+                    sound: "{{ 'none' if initial_notification_sent else 'default' }}"
                     critical: "{{ critical_alert }}"
+                    actions:
+                      - label: "View Live"
+                        action: "URI"
+                        uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                      - label: "View Stream"
+                        action: "URI"
+                        uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/master.m3u8"
                 - variables:
                     initial_notification_sent: true  # Set this after sending
                 - choose:
