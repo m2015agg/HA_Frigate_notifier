@@ -285,7 +285,7 @@ action:
                       or (update_loiter_cross != zone_alert and update_loiter_cross)
                       or (not zone_alert and update_motionless_cross)
                     %}
-                    {{ (update_type == 'end' and should_notify and not initial_notification_sent)
+                    {{ (update_type == 'end' and should_notify and not initial_notification_sent and duration >= loiter_threshold)
                        or significant_change }}
               sequence:
                 - device_id: !input notify_device
