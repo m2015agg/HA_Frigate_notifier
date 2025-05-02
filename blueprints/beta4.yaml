@@ -117,7 +117,7 @@ variables:
     {% if zone_settings|trim %}
       {% for line in zone_settings.split('\n') if ':' in line %}
         {% set parts = line.split(':',1) %}
-        {% set z = parts[0]|trim %}
+        {% set z = parts[0]|trim|lower %}
         {% set v = parts[1]|trim|int(-1) %}
         {% if v >= 0 %}
           {% set cfg = cfg | combine({z: {'loitering_time': v}}) %}
@@ -128,8 +128,8 @@ variables:
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
-  current_zones: "{{ payload.after.data.zones if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
-  entered_zones: "{{ payload.after.data.zones if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
+  current_zones: "{{ (payload.after.data.zones|map('lower')|list) if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
+  entered_zones: "{{ (payload.after.data.zones|map('lower')|list) if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
   duration: >-
     {{ (payload.after.end_time - payload.after.start_time)|int
        if payload.after.end_time else
@@ -139,9 +139,10 @@ variables:
   zone_alert: >-
     {% set should_alert = false %}
     {% for zone in current_zones %}
-      {% if zone in zone_config %}
-        {% set threshold = zone_config[zone].loitering_time %}
-        {% if threshold >= 0 and duration|int >= threshold|int %}
+      {% set zone_lc = zone|lower %}
+      {% if zone_lc in zone_config %}
+        {% set threshold = zone_config[zone_lc].loitering_time|int %}
+        {% if threshold >= 0 and duration|int >= threshold %}
           {% set should_alert = true %}
           {% break %}
         {% endif %}
@@ -165,6 +166,9 @@ variables:
       {% set durations = durations | combine({zone: duration}) %}
     {% endfor %}
     {{ durations }}
+
+  # Optional: minimum duration for notification (uncomment to enable)
+  # min_notify_duration: 5
 
   # Initialize repeat counter
   repeat_count: 0
@@ -362,3 +366,14 @@ action:
         Reason: {% if wait.trigger is none %}Timeout{% else %}End event{% endif %}
         Loitering: {{ zone_alert }}
         Motionless: {{ zone_alert }}
+
+  - service: logbook.log
+    data:
+      name: "Frigate Debug"
+      message: >
+        duration: {{ duration }} (type: {{ duration.__class__.__name__ }})\n
+        loiter_threshold: {{ loiter_threshold }} (type: {{ loiter_threshold.__class__.__name__ }})\n
+        zone_alert: {{ zone_alert }}\n
+        should_notify: {{ should_notify }}\n
+        zone_config: {{ zone_config }}\n
+        current_zones: {{ current_zones }}
