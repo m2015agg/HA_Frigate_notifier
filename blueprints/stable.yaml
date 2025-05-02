@@ -246,4 +246,43 @@ action:
           {% set seen = current.split(',') %}
           {% set new_list = seen + [event_id] %}
           {{ new_list[-20:] | join(',') }}
+        {% endif %}
+
+  # Update notification block
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ should_notify and (
+                (update_type == 'end' and not initial_notification_sent and duration >= loiter_threshold)
+                or significant_change
+              ) }}
+      sequence:
+        - device_id: !input notify_device
+          domain: mobile_app
+          type: notify
+          message: >
+            {% if loiter_cross %}
+              Loitering detected on {{ camera_id }} - Object loitering for {{ duration }}s.
+            {% else %}
+              Extended presence on {{ camera_id }} - Object stationary for {{ duration }}s.
+            {% endif %}
+          data:
+            tag: "{{ event_id }}"
+            image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
+            clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+
+  # Only update the list of seen events after sending notification
+  - service: input_text.set_value
+    target:
+      entity_id: input_text.frigate_notified_events
+    data:
+      value: >-
+        {% set current = states('input_text.frigate_notified_events') %}
+        {% if current == 'unknown' or current == '' %}
+          {{ event_id }}
+        {% else %}
+          {% set seen = current.split(',') %}
+          {% set new_list = seen + [event_id] %}
+          {{ new_list[-20:] | join(',') }}
         {% endif %} 
