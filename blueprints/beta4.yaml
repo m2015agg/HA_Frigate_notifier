@@ -128,12 +128,12 @@ variables:
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
-  current_zones: "{{ payload.after.current_zones }}"
-  entered_zones: "{{ payload.after.entered_zones }}"
+  current_zones: "{{ payload.after.data.zones }}"
+  entered_zones: "{{ payload.after.data.zones }}"
   duration: >-
     {{ (payload.after.end_time - payload.after.start_time)|int
        if payload.after.end_time else
-       (payload.after.frame_time - payload.after.start_time)|int }}
+       (now().timestamp()|int - payload.after.start_time|int) }}
 
   # Zone-specific timing check
   zone_alert: >-
@@ -258,7 +258,7 @@ action:
             update_duration: >-
               {{ (update_payload.after.end_time - update_payload.after.start_time)|int
                  if update_payload.after.end_time else
-                 (update_payload.after.frame_time - update_payload.after.start_time)|int }}
+                 (now().timestamp()|int - update_payload.after.start_time|int) }}
             update_loiter_cross: >-
               {% set thr = loiter_threshold %}
               {% for z in update_zones %}
