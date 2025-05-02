@@ -271,7 +271,7 @@ action:
             update_motionless_cross: >-
               {{ update_payload.after.motionless_count is defined 
                  and update_payload.after.motionless_count > 45 }}
-            current_labels: "{{ update_payload.after.data.objects[0] if update_payload.after.data is defined and update_payload.after.data.objects is defined and update_payload.after.data.objects|length > 0 else '' }}"
+            current_labels: "{{ payload.after.data.objects[0] if payload.after.data is defined and payload.after.data.objects is defined and payload.after.data.objects|length > 0 else '' }}"
             labels_changed: >-
               {{ current_labels not in tracked_labels }}
 
