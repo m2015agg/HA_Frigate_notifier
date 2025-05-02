@@ -133,7 +133,7 @@ variables:
   duration: >-
     {{ (payload.after.end_time - payload.after.start_time)|int
        if payload.after.end_time else
-       (payload.after.frame_time - payload.after.start_time)|int }}
+       (now().timestamp()|int - payload.after.start_time|int) }}
 
   # Zone-specific timing check
   zone_alert: >-
