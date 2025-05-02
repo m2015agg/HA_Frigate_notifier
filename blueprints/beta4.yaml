@@ -128,8 +128,8 @@ variables:
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
-  current_zones: "{{ payload.after.current_zones }}"
-  entered_zones: "{{ payload.after.entered_zones }}"
+  current_zones: "{{ payload.after.data.zones if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
+  entered_zones: "{{ payload.after.data.zones if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
   duration: >-
     {{ (payload.after.end_time - payload.after.start_time)|int
        if payload.after.end_time else
@@ -254,11 +254,11 @@ action:
         - variables:
             update_payload: "{{ wait.trigger.payload_json }}"
             update_type: "{{ update_payload.type }}"
-            update_zones: "{{ update_payload.after.current_zones }}"
+            update_zones: "{{ update_payload.after.data.zones if update_payload.after.data is defined and update_payload.after.data.zones is defined else [] }}"
             update_duration: >-
               {{ (update_payload.after.end_time - update_payload.after.start_time)|int
                  if update_payload.after.end_time else
-                 (update_payload.after.frame_time - update_payload.after.start_time)|int }}
+                 (now().timestamp()|int - update_payload.after.start_time|int) }}
             update_loiter_cross: >-
               {% set thr = loiter_threshold %}
               {% for z in update_zones %}
@@ -271,7 +271,7 @@ action:
             update_motionless_cross: >-
               {{ update_payload.after.motionless_count is defined 
                  and update_payload.after.motionless_count > 45 }}
-            current_labels: "{{ update_payload.after.label }}"
+            current_labels: "{{ update_payload.after.data.objects[0] if update_payload.after.data is defined and update_payload.after.data.objects is defined and update_payload.after.data.objects|length > 0 else '' }}"
             labels_changed: >-
               {{ current_labels not in tracked_labels }}
 
