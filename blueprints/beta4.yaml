@@ -261,13 +261,27 @@ action:
                         {% endif %}
                       {% endif %}
                     {% endfor %}
-                    {{ update_zones|length > 0 and should_alert and not initial_notification_sent }}
+                    {% set new_objects = update_payload.after.data.objects|difference(update_payload.before.data.objects) %}
+                    {{ update_zones|length > 0 and should_alert and (not initial_notification_sent or new_objects|length > 0) }}
               sequence:
+                - service: logbook.log
+                  data:
+                    name: "Frigate Event"
+                    message: >-
+                      Update detected - Event {{ event_id }} ({{ camera_id }})
+                      Duration: {{ update_duration }}s
+                      Objects: {{ update_payload.after.data.objects|join(', ') }}
+                      New objects: {{ new_objects|join(', ') }}
+                      Initial notification sent: {{ initial_notification_sent }}
                 - device_id: !input notify_device
                   domain: mobile_app
                   type: notify
                   message: >-
+                    {% if new_objects|length > 0 %}
+                    New objects detected on {{ camera_id }}: {{ new_objects|join(', ') }}
+                    {% else %}
                     Presence detected on {{ camera_id }} – Object has been present for {{ update_duration }}s.
+                    {% endif %}
                   data:
                     tag: "{{ event_id }}"
                     title: "Frigate Presence Detection"
@@ -289,18 +303,6 @@ action:
                         uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/master.m3u8"
                 - variables:
                     initial_notification_sent: true
-                - choose:
-                    - conditions: "{{ enable_homekit }}"
-                      sequence:
-                        - service: input_boolean.turn_on
-                          target:
-                            entity_id: >
-                              input_boolean.frigate_{{ camera_id|lower }}_alert
-                        - delay: 5
-                        - service: input_boolean.turn_off
-                          target:
-                            entity_id: >
-                              input_boolean.frigate_{{ camera_id|lower }}_alert
 
       # Stop looping once Frigate sends the "end" for this event or times out
       until: >-
