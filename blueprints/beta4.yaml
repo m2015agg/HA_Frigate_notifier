@@ -166,10 +166,15 @@ variables:
     {% endfor %}
     {{ durations }}
 
+  # Initialize repeat counter
+  repeat_count: 0
+
 action:
   - repeat:
       sequence:
         # 1. On first iteration, send initial notification if threshold is met
+        - variables:
+            repeat_count: "{{ repeat_count + 1 }}"
         - choose:
             - conditions:
                 - condition: template
