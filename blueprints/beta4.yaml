@@ -128,12 +128,12 @@ variables:
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
-  current_zones: "{{ payload.after.data.zones }}"
-  entered_zones: "{{ payload.after.data.zones }}"
+  current_zones: "{{ payload.after.current_zones }}"
+  entered_zones: "{{ payload.after.entered_zones }}"
   duration: >-
     {{ (payload.after.end_time - payload.after.start_time)|int
        if payload.after.end_time else
-       (now().timestamp()|int - payload.after.start_time|int) }}
+       (payload.after.frame_time - payload.after.start_time)|int }}
 
   # Zone-specific timing check
   zone_alert: >-
@@ -258,7 +258,7 @@ action:
             update_duration: >-
               {{ (update_payload.after.end_time - update_payload.after.start_time)|int
                  if update_payload.after.end_time else
-                 (now().timestamp()|int - update_payload.after.start_time|int) }}
+                 (update_payload.after.frame_time - update_payload.after.start_time)|int }}
             update_loiter_cross: >-
               {% set thr = loiter_threshold %}
               {% for z in update_zones %}
@@ -284,18 +284,14 @@ action:
                       update_zones != current_zones
                       or labels_changed
                     %}
-                    {{ (update_type == 'end' and should_notify and not initial_notification_sent and duration >= loiter_threshold)
+                    {{ (should_notify and not initial_notification_sent and duration >= loiter_threshold)
                        or significant_change }}
               sequence:
                 - device_id: !input notify_device
                   domain: mobile_app
                   type: notify
                   message: >-
-                    {% if update_type == 'end' %}
-                      Event ended on {{ camera_id }} – duration {{ update_duration }}s.
-                    {% else %}
-                      A {{ current_labels }} {{ 'was detected' }} on the {{ camera_id }} camera.
-                    {% endif %}
+                    {% if should_notify %}Loitering detected on {{ camera_id }} – Object has been present for {{ duration }}s.{% else %}Motion detected on {{ camera_id }} – Object has been present for {{ duration }}s.{% endif %}
                   data:
                     tag: "{{ event_id }}"
                     title: "Frigate Detection Update"
