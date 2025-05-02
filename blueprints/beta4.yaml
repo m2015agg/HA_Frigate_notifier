@@ -157,10 +157,16 @@ action:
                 - service: logbook.log
                   data:
                     name: "Frigate Event"
-                    message: >
-                      Presence detected - Event {{ event_id }} ({{ camera_id }})
-                      Device ID: {{ notify_device }}
+                    message: >-
+                      Event {{ event_id }} ({{ camera_id }})
+                      Type: {{ payload.type }}
                       Duration: {{ duration }}s
+                      Objects: {{ payload.after.data.objects|join(', ') }}
+                      Zones: {{ payload.after.data.zones|join(', ') }}
+                      {% if payload.type == 'update' %}
+                      New objects: {{ update_payload.after.data.objects|difference(update_payload.before.data.objects)|join(', ') }}
+                      {% endif %}
+                      Notification sent: {{ initial_notification_sent }}
                 - device_id: !input notify_device
                   domain: mobile_app
                   type: notify
