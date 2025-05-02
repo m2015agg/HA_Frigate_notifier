@@ -280,7 +280,7 @@ action:
             labels_changed: >-
               {{ current_labels not in tracked_labels }}
 
-        # 4. Notify only on changes or final end
+        # 4. Notify only on changes 
         - choose:
             - conditions:
                 - condition: template
@@ -289,8 +289,10 @@ action:
                       update_zones != current_zones
                       or labels_changed
                     %}
-                    {{ (update_type == 'end' and should_notify and not initial_notification_sent and duration >= loiter_threshold)
-                       or significant_change }}
+                    {{ should_notify and (
+                        (not initial_notification_sent and duration >= loiter_threshold)
+                        or significant_change
+                    ) }}
               sequence:
                 - device_id: !input notify_device
                   domain: mobile_app
