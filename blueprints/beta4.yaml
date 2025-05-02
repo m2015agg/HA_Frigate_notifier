@@ -117,7 +117,7 @@ variables:
     {% if zone_settings|trim %}
       {% for line in zone_settings.split('\n') if ':' in line %}
         {% set parts = line.split(':',1) %}
-        {% set z = parts[0]|trim|lower %}
+        {% set z = parts[0]|trim %}
         {% set v = parts[1]|trim|int(-1) %}
         {% if v >= 0 %}
           {% set cfg = cfg | combine({z: {'loitering_time': v}}) %}
@@ -128,8 +128,8 @@ variables:
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
-  current_zones: "{{ (payload.after.data.zones|map('lower')|list) if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
-  entered_zones: "{{ (payload.after.data.zones|map('lower')|list) if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
+  current_zones: "{{ payload.after.data.zones }}"
+  entered_zones: "{{ payload.after.data.zones }}"
   duration: >-
     {{ (payload.after.end_time - payload.after.start_time)|int
        if payload.after.end_time else
@@ -139,15 +139,14 @@ variables:
   zone_alert: >-
     {% set should_alert = false %}
     {% for zone in current_zones %}
-      {% set zone_lc = zone|lower %}
-      {% if zone_lc in zone_config %}
-        {% set threshold = zone_config[zone_lc].loitering_time|int %}
-        {% if threshold >= 0 and duration|int >= threshold %}
+      {% if zone in zone_config %}
+        {% set threshold = zone_config[zone].loitering_time %}
+        {% if threshold >= 0 and duration >= threshold %}
           {% set should_alert = true %}
           {% break %}
         {% endif %}
       {% else %}
-        {% if duration|int >= loiter_threshold|int %}
+        {% if duration >= loiter_threshold %}
           {% set should_alert = true %}
           {% break %}
         {% endif %}
@@ -167,18 +166,10 @@ variables:
     {% endfor %}
     {{ durations }}
 
-  # Optional: minimum duration for notification (uncomment to enable)
-  # min_notify_duration: 5
-
-  # Initialize repeat counter
-  repeat_count: 0
-
 action:
   - repeat:
       sequence:
         # 1. On first iteration, send initial notification if threshold is met
-        - variables:
-            repeat_count: "{{ repeat_count + 1 }}"
         - choose:
             - conditions:
                 - condition: template
@@ -191,9 +182,6 @@ action:
                       Attempting notification - Event {{ event_id }} ({{ camera_id }})
                       Device ID: {{ notify_device }}
                       Should Notify: {{ should_notify }}
-                      Current Zones: {{ current_zones }}
-                      Duration: {{ duration }}
-                      Loiter Threshold: {{ loiter_threshold }}
                 - device_id: !input notify_device
                   domain: mobile_app
                   type: notify
@@ -266,25 +254,28 @@ action:
         - variables:
             update_payload: "{{ wait.trigger.payload_json }}"
             update_type: "{{ update_payload.type }}"
-            update_zones: "{{ update_payload.after.data.zones if update_payload.after.data is defined and update_payload.after.data.zones is defined else [] }}"
+            update_zones: "{{ update_payload.after.current_zones }}"
             update_duration: >-
               {{ (update_payload.after.end_time - update_payload.after.start_time)|int
                  if update_payload.after.end_time else
                  (now().timestamp()|int - update_payload.after.start_time|int) }}
             update_loiter_cross: >-
-              {% set thr = loiter_threshold|int %}
+              {% set thr = loiter_threshold %}
               {% for z in update_zones %}
                 {% if z in zone_config %}
-                  {% set thr = zone_config[z].loitering_time|int %}
+                  {% set thr = zone_config[z].loitering_time %}
                   {% break %}
                 {% endif %}
               {% endfor %}
-              {{ update_zones|length > 0 and update_duration|int >= thr }}
-            current_labels: "{{ update_payload.after.data.objects[0] if update_payload.after.data is defined and update_payload.after.data.objects is defined and update_payload.after.data.objects|length > 0 else '' }}"
+              {{ update_zones|length > 0 and update_duration >= thr }}
+            update_motionless_cross: >-
+              {{ update_payload.after.motionless_count is defined 
+                 and update_payload.after.motionless_count > 45 }}
+            current_labels: "{{ update_payload.after.label }}"
             labels_changed: >-
               {{ current_labels not in tracked_labels }}
 
-        # 4. Notify only on changes 
+        # 4. Notify only on changes or final end
         - choose:
             - conditions:
                 - condition: template
@@ -293,10 +284,8 @@ action:
                       update_zones != current_zones
                       or labels_changed
                     %}
-                    {{ should_notify and (
-                        (not initial_notification_sent and duration >= loiter_threshold)
-                        or significant_change
-                    ) }}
+                    {{ (update_type == 'end' and should_notify and not initial_notification_sent and duration >= loiter_threshold)
+                       or significant_change }}
               sequence:
                 - device_id: !input notify_device
                   domain: mobile_app
@@ -366,14 +355,3 @@ action:
         Reason: {% if wait.trigger is none %}Timeout{% else %}End event{% endif %}
         Loitering: {{ zone_alert }}
         Motionless: {{ zone_alert }}
-
-  - service: logbook.log
-    data:
-      name: "Frigate Debug"
-      message: >
-        duration: {{ duration }} (type: {{ duration.__class__.__name__ }})\n
-        loiter_threshold: {{ loiter_threshold }} (type: {{ loiter_threshold.__class__.__name__ }})\n
-        zone_alert: {{ zone_alert }}\n
-        should_notify: {{ should_notify }}\n
-        zone_config: {{ zone_config }}\n
-        current_zones: {{ current_zones }}
