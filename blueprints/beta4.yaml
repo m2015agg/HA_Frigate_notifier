@@ -268,23 +268,29 @@ action:
                       {% endif %}
                     {% endfor %}
                     {% set new_objects = update_payload.after.data.objects|difference(update_payload.before.data.objects) %}
-                    {{ update_zones|length > 0 and should_alert and (not initial_notification_sent or new_objects|length > 0) }}
+                    {{ update_zones|length > 0 and should_alert and (not initial_notification_sent or new_objects|length > 0 or update_type == 'end') }}
               sequence:
                 - service: logbook.log
                   data:
                     name: "Frigate Event"
                     message: >-
-                      Update detected - Event {{ event_id }} ({{ camera_id }})
+                      Event {{ event_id }} ({{ camera_id }})
+                      Type: {{ update_type }}
                       Duration: {{ update_duration }}s
                       Objects: {{ update_payload.after.data.objects|join(', ') }}
+                      Zones: {{ update_zones|join(', ') }}
+                      {% if new_objects|length > 0 %}
                       New objects: {{ new_objects|join(', ') }}
-                      Initial notification sent: {{ initial_notification_sent }}
+                      {% endif %}
+                      Notification sent: {{ initial_notification_sent }}
                 - device_id: !input notify_device
                   domain: mobile_app
                   type: notify
                   message: >-
                     {% if new_objects|length > 0 %}
                     New objects detected on {{ camera_id }}: {{ new_objects|join(', ') }}
+                    {% elif update_type == 'end' %}
+                    Event ended on {{ camera_id }} – Object was present for {{ update_duration }}s
                     {% else %}
                     Presence detected on {{ camera_id }} – Object has been present for {{ update_duration }}s.
                     {% endif %}
