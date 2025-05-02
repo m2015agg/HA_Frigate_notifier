@@ -128,8 +128,8 @@ variables:
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
-  current_zones: "{{ payload.after.data.zones }}"
-  entered_zones: "{{ payload.after.data.zones }}"
+  current_zones: "{{ payload.after.data.zones if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
+  entered_zones: "{{ payload.after.data.zones if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
   duration: >-
     {{ (payload.after.end_time - payload.after.start_time)|int
        if payload.after.end_time else
@@ -141,12 +141,12 @@ variables:
     {% for zone in current_zones %}
       {% if zone in zone_config %}
         {% set threshold = zone_config[zone].loitering_time %}
-        {% if threshold >= 0 and duration >= threshold %}
+        {% if threshold >= 0 and duration|int >= threshold|int %}
           {% set should_alert = true %}
           {% break %}
         {% endif %}
       {% else %}
-        {% if duration >= loiter_threshold %}
+        {% if duration|int >= loiter_threshold|int %}
           {% set should_alert = true %}
           {% break %}
         {% endif %}
@@ -187,6 +187,9 @@ action:
                       Attempting notification - Event {{ event_id }} ({{ camera_id }})
                       Device ID: {{ notify_device }}
                       Should Notify: {{ should_notify }}
+                      Current Zones: {{ current_zones }}
+                      Duration: {{ duration }}
+                      Loiter Threshold: {{ loiter_threshold }}
                 - device_id: !input notify_device
                   domain: mobile_app
                   type: notify
@@ -195,11 +198,11 @@ action:
                   data:
                     tag: "{{ event_id }}"
                     title: "Frigate Detection"
-                    image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                    image: "{{ base_url }}{{ payload.after.thumb_path }}"
+                    clickAction: "{{ base_url }}{{ payload.after.thumb_path }}"
                     tap_action:
                       action: "URI"
-                      uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                      uri: "{{ base_url }}{{ payload.after.thumb_path }}"
                     importance: "{{ 'low' if initial_notification_sent else 'high' }}"
                     priority: "{{ 'low' if initial_notification_sent else 'high' }}"
                     sound: "{{ 'none' if initial_notification_sent else 'default' }}"
@@ -207,7 +210,7 @@ action:
                     actions:
                       - label: "View Live"
                         action: "URI"
-                        uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                        uri: "{{ base_url }}{{ payload.after.thumb_path }}"
                       - label: "View Stream"
                         action: "URI"
                         uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/master.m3u8"
@@ -259,24 +262,21 @@ action:
         - variables:
             update_payload: "{{ wait.trigger.payload_json }}"
             update_type: "{{ update_payload.type }}"
-            update_zones: "{{ update_payload.after.current_zones }}"
+            update_zones: "{{ update_payload.after.data.zones if update_payload.after.data is defined and update_payload.after.data.zones is defined else [] }}"
             update_duration: >-
               {{ (update_payload.after.end_time - update_payload.after.start_time)|int
                  if update_payload.after.end_time else
                  (now().timestamp()|int - update_payload.after.start_time|int) }}
             update_loiter_cross: >-
-              {% set thr = loiter_threshold %}
+              {% set thr = loiter_threshold|int %}
               {% for z in update_zones %}
                 {% if z in zone_config %}
-                  {% set thr = zone_config[z].loitering_time %}
+                  {% set thr = zone_config[z].loitering_time|int %}
                   {% break %}
                 {% endif %}
               {% endfor %}
-              {{ update_zones|length > 0 and update_duration >= thr }}
-            update_motionless_cross: >-
-              {{ update_payload.after.motionless_count is defined 
-                 and update_payload.after.motionless_count > 45 }}
-            current_labels: "{{ update_payload.after.label }}"
+              {{ update_zones|length > 0 and update_duration|int >= thr }}
+            current_labels: "{{ update_payload.after.data.objects[0] if update_payload.after.data is defined and update_payload.after.data.objects is defined and update_payload.after.data.objects|length > 0 else '' }}"
             labels_changed: >-
               {{ current_labels not in tracked_labels }}
 
@@ -304,11 +304,11 @@ action:
                   data:
                     tag: "{{ event_id }}"
                     title: "Frigate Detection Update"
-                    image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                    image: "{{ base_url }}{{ payload.after.thumb_path }}"
+                    clickAction: "{{ base_url }}{{ payload.after.thumb_path }}"
                     tap_action:
                       action: "URI"
-                      uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                      uri: "{{ base_url }}{{ payload.after.thumb_path }}"
                     importance: "{{ 'low' if initial_notification_sent else 'high' }}"
                     priority: "{{ 'low' if initial_notification_sent else 'high' }}"
                     sound: "{{ 'none' if initial_notification_sent else 'default' }}"
@@ -316,7 +316,7 @@ action:
                     actions:
                       - label: "View Live"
                         action: "URI"
-                        uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                        uri: "{{ base_url }}{{ payload.after.thumb_path }}"
                       - label: "View Stream"
                         action: "URI"
                         uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/master.m3u8"
