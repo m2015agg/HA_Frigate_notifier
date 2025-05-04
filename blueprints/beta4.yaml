@@ -168,21 +168,27 @@ action:
               {% set duration = current_duration|int %}
               {% set pt = presence_time|int %}
               {% set alert = false %}
+              {% set zone_matched = false %}
               {% for zone in current_zones %}
                 {% if zone in zone_config %}
                   {% set t = zone_config[zone].presence_time|int %}
-                  {% if duration >= t %}
+                  {% if t >= 0 and duration >= t %}
                     {% set alert = true %}
-                    {% break %}
-                  {% endif %}
-                {% else %}
-                  {% if current_duration >= pt %}
-                    {% set alert = true %}
+                    {% set zone_matched = true %}
                     {% break %}
                   {% endif %}
                 {% endif %}
               {% endfor %}
+              {% if not zone_matched and duration >= pt %}
+                {% set alert = true %}
+              {% endif %}
               {{ current_zones|length > 0 and alert }}
+
+        # Debug log for zone parsing
+        - service: system_log.write
+          data:
+            message: "Zone Settings: {{ zone_settings }} | Parsed Config: {{ zone_config }} | Current Zones: {{ current_zones }} | Duration: {{ current_duration }}"
+            level: info
 
         # Send notification if conditions are met
         - choose:
