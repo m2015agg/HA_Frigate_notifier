@@ -119,6 +119,12 @@ variables:
     {% endif %}
     {{ cfg }}
 
+  # Debug log for zone parsing
+  - service: system_log.write
+    data:
+      message: "Zone Settings: {{ zone_settings }} | Parsed Config: {{ zone_config }}"
+      level: info
+
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
   current_zones: "{{ payload.after.data.zones if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
@@ -130,22 +136,22 @@ variables:
   # Check if object has been present long enough in any zone
   should_notify: >-
     {% set duration = duration|int %}
-    {% set presence_time = presence_time|int %}
+    {% set pt = presence_time|int %}
     {% set should_alert = false %}
+    {% set zone_matched = false %}
     {% for zone in current_zones %}
       {% if zone in zone_config %}
         {% set threshold = zone_config[zone].presence_time|int %}
         {% if threshold >= 0 and duration >= threshold %}
           {% set should_alert = true %}
-          {% break %}
-        {% endif %}
-      {% else %}
-        {% if duration >= presence_time %}
-          {% set should_alert = true %}
+          {% set zone_matched = true %}
           {% break %}
         {% endif %}
       {% endif %}
     {% endfor %}
+    {% if not zone_matched and duration >= pt %}
+      {% set should_alert = true %}
+    {% endif %}
     {{ current_zones|length > 0 and should_alert }}
 
 action:
