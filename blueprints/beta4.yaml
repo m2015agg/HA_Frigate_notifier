@@ -148,11 +148,38 @@ variables:
 action:
   - repeat:
       sequence:
-        # Send notification if presence threshold is met
+        # Re-evaluate current state
+        - variables:
+            current_duration: >-
+              {{ (payload.after.end_time - payload.after.start_time)|int
+                 if payload.after.end_time else
+                 (now().timestamp()|int - payload.after.start_time|int) }}
+            current_zones: "{{ payload.after.data.zones if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
+            current_should_notify: >-
+              {% set duration = current_duration|int %}
+              {% set pt = presence_time|int %}
+              {% set alert = false %}
+              {% for zone in current_zones %}
+                {% if zone in zone_config %}
+                  {% set t = zone_config[zone].presence_time|int %}
+                  {% if duration >= t %}
+                    {% set alert = true %}
+                    {% break %}
+                  {% endif %}
+                {% else %}
+                  {% if duration >= pt %}
+                    {% set alert = true %}
+                    {% break %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              {{ current_zones|length > 0 and alert }}
+
+        # Send notification if conditions are met
         - choose:
             - conditions:
                 - condition: template
-                  value_template: "{{ should_notify }}"
+                  value_template: "{{ current_should_notify }}"
               sequence:
                 - service: logbook.log
                   data:
@@ -160,18 +187,15 @@ action:
                     message: >-
                       Event {{ event_id }} ({{ camera_id }})
                       Type: {{ payload.type }}
-                      Duration: {{ duration }}s
+                      Duration: {{ current_duration }}s
                       Objects: {{ payload.after.data.objects|join(', ') }}
-                      Zones: {{ payload.after.data.zones|join(', ') }}
-                      {% if payload.type == 'update' %}
-                      New objects: {{ update_payload.after.data.objects|difference(update_payload.before.data.objects)|join(', ') }}
-                      {% endif %}
+                      Zones: {{ current_zones|join(', ') }}
                       Notification sent: {{ initial_notification_sent }}
                 - device_id: !input notify_device
                   domain: mobile_app
                   type: notify
                   message: >-
-                    Presence detected on {{ camera_id }} – Object has been present for {{ duration }}s.
+                    Presence detected on {{ camera_id }} – Object has been present for {{ current_duration }}s.
                   data:
                     tag: "{{ event_id }}"
                     title: "Frigate Presence Detection"
@@ -237,84 +261,31 @@ action:
 
         # Update variables with new payload
         - variables:
-            update_payload: "{{ wait.trigger.payload_json }}"
-            update_type: "{{ update_payload.type }}"
-            update_zones: "{{ update_payload.after.data.zones if update_payload.after.data is defined and update_payload.after.data.zones is defined else [] }}"
-            update_duration: >-
-              {{ (update_payload.after.end_time - update_payload.after.start_time)|int
-                 if update_payload.after.end_time else
-                 (now().timestamp()|int - update_payload.after.start_time|int) }}
-
-        # Check if we should notify based on updated info
-        - choose:
-            - conditions:
-                - condition: template
-                  value_template: >-
-                    {% set duration = update_duration|int %}
-                    {% set presence_time = presence_time|int %}
-                    {% set should_alert = false %}
-                    {% for zone in update_zones %}
-                      {% if zone in zone_config %}
-                        {% set threshold = zone_config[zone].presence_time|int %}
-                        {% if threshold >= 0 and duration >= threshold %}
-                          {% set should_alert = true %}
-                          {% break %}
-                        {% endif %}
-                      {% else %}
-                        {% if duration >= presence_time %}
-                          {% set should_alert = true %}
-                          {% break %}
-                        {% endif %}
-                      {% endif %}
-                    {% endfor %}
-                    {% set new_objects = update_payload.after.data.objects|difference(update_payload.before.data.objects) %}
-                    {{ update_zones|length > 0 and should_alert and (not initial_notification_sent or new_objects|length > 0 or update_type == 'end') }}
-              sequence:
-                - service: logbook.log
-                  data:
-                    name: "Frigate Event"
-                    message: >-
-                      Event {{ event_id }} ({{ camera_id }})
-                      Type: {{ update_type }}
-                      Duration: {{ update_duration }}s
-                      Objects: {{ update_payload.after.data.objects|join(', ') }}
-                      Zones: {{ update_zones|join(', ') }}
-                      {% if new_objects|length > 0 %}
-                      New objects: {{ new_objects|join(', ') }}
-                      {% endif %}
-                      Notification sent: {{ initial_notification_sent }}
-                - device_id: !input notify_device
-                  domain: mobile_app
-                  type: notify
-                  message: >-
-                    {% if new_objects|length > 0 %}
-                    New objects detected on {{ camera_id }}: {{ new_objects|join(', ') }}
-                    {% elif update_type == 'end' %}
-                    Event ended on {{ camera_id }} – Object was present for {{ update_duration }}s
-                    {% else %}
-                    Presence detected on {{ camera_id }} – Object has been present for {{ update_duration }}s.
-                    {% endif %}
-                  data:
-                    tag: "{{ event_id }}"
-                    title: "Frigate Presence Detection"
-                    image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-                    tap_action:
-                      action: "URI"
-                      uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-                    importance: "high"
-                    priority: "high"
-                    sound: "default"
-                    critical: "{{ critical_alert }}"
-                    actions:
-                      - label: "View Live"
-                        action: "URI"
-                        uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-                      - label: "View Stream"
-                        action: "URI"
-                        uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/master.m3u8"
-                - variables:
-                    initial_notification_sent: true
+            payload: "{{ wait.trigger.payload_json }}"
+            current_duration: >-
+              {{ (payload.after.end_time - payload.after.start_time)|int
+                 if payload.after.end_time else
+                 (now().timestamp()|int - payload.after.start_time|int) }}
+            current_zones: "{{ payload.after.data.zones if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
+            current_should_notify: >-
+              {% set duration = current_duration|int %}
+              {% set pt = presence_time|int %}
+              {% set alert = false %}
+              {% for zone in current_zones %}
+                {% if zone in zone_config %}
+                  {% set t = zone_config[zone].presence_time|int %}
+                  {% if duration >= t %}
+                    {% set alert = true %}
+                    {% break %}
+                  {% endif %}
+                {% else %}
+                  {% if duration >= pt %}
+                    {% set alert = true %}
+                    {% break %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              {{ current_zones|length > 0 and alert }}
 
       # Stop looping once Frigate sends the "end" for this event or times out
       until: >-
