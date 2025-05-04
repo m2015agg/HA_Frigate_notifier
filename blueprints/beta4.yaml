@@ -167,7 +167,7 @@ action:
                     {% break %}
                   {% endif %}
                 {% else %}
-                  {% if duration >= pt %}
+                  {% if current_duration >= pt %}
                     {% set alert = true %}
                     {% break %}
                   {% endif %}
@@ -254,6 +254,7 @@ action:
                       Timeout - Event {{ event_id }} ({{ camera_id }})
                       Duration: {{ duration }}s
                       Timeout: {{ timeout }} minutes
+                      loopTime:
 
         # Stop if we timed out
         - condition: template
