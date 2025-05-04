@@ -104,16 +104,19 @@ variables:
   # parse zone_settings into a dict of { zone: {presence_time: seconds} }
   zone_config: >-
     {% set cfg = {} %}
-    {% for line in zone_settings.split('\n') %}
-      {% set line = line.strip() %}
-      {% if ':' in line %}
-        {% set z = line.split(':',1)[0].strip() %}
-        {% set v = line.split(':',1)[1].strip()|int(-1) %}
-        {% if v >= 0 %}
-          {% set cfg = cfg | combine({z: {'presence_time': v}}) %}
+    {% if zone_settings|trim %}
+      {% for line in zone_settings.splitlines() %}
+        {% set line = line.strip() %}
+        {% if ':' in line %}
+          {% set parts = line.split(':',1) %}
+          {% set z = parts[0].strip() %}
+          {% set v = parts[1].strip()|int(-1) %}
+          {% if v >= 0 %}
+            {% set cfg = cfg | combine({z: {'presence_time': v}}) %}
+          {% endif %}
         {% endif %}
-      {% endif %}
-    {% endfor %}
+      {% endfor %}
+    {% endif %}
     {{ cfg }}
 
   # Basic event info
