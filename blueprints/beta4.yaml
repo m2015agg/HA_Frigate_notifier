@@ -254,7 +254,7 @@ action:
                       Timeout - Event {{ event_id }} ({{ camera_id }})
                       Duration: {{ duration }}s
                       Timeout: {{ timeout }} minutes
-                      loopTime:
+                      loopTime: {{ current_duration}}s
 
         # Stop if we timed out
         - condition: template
