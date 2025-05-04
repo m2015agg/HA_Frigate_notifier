@@ -113,7 +113,7 @@ variables:
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
-  current_zones: "{{ payload.after.data.zones if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
+  current_zones: "{{ payload.after.current_zones if payload.after.current_zones is defined else [] }}"
   duration: >-
     {{ (payload.after.end_time - payload.after.start_time)|int
       if payload.after.end_time else
@@ -149,7 +149,7 @@ action:
               {{ (payload.after.end_time - payload.after.start_time)|int
                 if payload.after.end_time else
                 (now().timestamp()|int - payload.after.start_time|int) }}
-            current_zones: "{{ payload.after.data.zones if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
+            current_zones: "{{ payload.after.current_zones if payload.after.current_zones is defined else [] }}"
             current_should_notify: >-
               {% set duration = current_duration|int %}
               {% set pt = presence_time|int %}
@@ -162,7 +162,7 @@ action:
                     {% break %}
                   {% endif %}
                 {% else %}
-                  {% if current_duration >= pt %}
+                  {% if duration >= pt %}
                     {% set alert = true %}
                     {% break %}
                   {% endif %}
@@ -262,7 +262,7 @@ action:
               {{ (payload.after.end_time - payload.after.start_time)|int
                 if payload.after.end_time else
                 (now().timestamp()|int - payload.after.start_time|int) }}
-            current_zones: "{{ payload.after.data.zones if payload.after.data is defined and payload.after.data.zones is defined else [] }}"
+            current_zones: "{{ payload.after.current_zones if payload.after.current_zones is defined else [] }}"
             current_should_notify: >-
               {% set duration = current_duration|int %}
               {% set pt = presence_time|int %}
