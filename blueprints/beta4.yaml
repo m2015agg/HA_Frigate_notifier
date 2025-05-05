@@ -242,10 +242,4 @@ action:
         {% else %}
           {{ wait.trigger.payload_json.type == 'end' }}
         {% endif %}
-  - service: logbook.log
-    data:
-      name: "Frigate Event"
-      message: >
-        Completed - Event {{ event_id }} ({{ camera_id }})
-        Final duration: {{ duration }}s
-        Reason: {% if wait.trigger is none %}Timeout{% else %}End event{% endif %}
+
