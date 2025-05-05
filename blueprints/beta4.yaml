@@ -37,7 +37,7 @@ blueprint:
 
     mqtt_topic:
       name: MQTT Topic
-      default: frigate/events
+      default: frigate/reviews
       selector:
         text: {}
 
@@ -49,11 +49,11 @@ blueprint:
 
     zone_settings:
       name: Zone Settings (YAML)
-      default: ''
+      default: []
       selector:
         text:
           multiline: true
-          multiple: false
+          multiple: true
 
     timeout:
       name: Update Timeout (minutes)
@@ -104,71 +104,58 @@ variables:
 
   # parse zone_settings into a dict of { zone: {presence_time: seconds} }
   zone_config: >-
-    {% set cfg = {
-      'street': {'presence_time': 5},
-      'garage': {'presence_time': 4},
-      'yard': {'presence_time': 1}
-    } %}
+    {% set cfg = {} %}
+    {% for line in zone_settings %}
+      {% if ':' in line %}
+        {% set parts = line.split(':', 1) %}
+        {% set z = parts[0]|trim %}
+        {% set v = parts[1]|trim|int(-1) %}
+        {% if v >= 0 %}
+          {% set cfg = cfg | combine({z: {'presence_time': v}}) %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
     {{ cfg }}
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
-  current_zones: "{{ payload.after.current_zones if payload.after.current_zones is defined else [] }}"
-  duration: >-
-    {{ (payload.after.end_time - payload.after.start_time)|int
-      if payload.after.end_time else
-      (now().timestamp()|int - payload.after.start_time|int) }}
+  
 
-  # Check if object has been present long enough in any zone
-  should_notify: >-
-    {% set duration = duration|int %}
-    {% set presence_time = presence_time|int %}
-    {% set should_alert = false %}
-    {% for zone in current_zones %}
-      {% if zone in zone_config %}
-        {% set threshold = zone_config[zone].presence_time|int %}
-        {% if threshold >= 0 and duration >= threshold %}
-          {% set should_alert = true %}
-          {% break %}
-        {% endif %}
-      {% else %}
-        {% if duration >= presence_time %}
-          {% set should_alert = true %}
-          {% break %}
-        {% endif %}
-      {% endif %}
-    {% endfor %}
-    {{ current_zones|length > 0 and should_alert }}
+
+
+
+
 
 action:
   - repeat:
       sequence:
         # Re-evaluate current state
         - variables:
+            current_zones: "{{ payload.after.current_zones if payload.after.current_zones is defined else [] }}"
+              # Determine the minimum threshold for the current zones
+            current_zone_threshold: >-
+              {% set thresholds = [] %}
+                {% for zone in current_zones %}
+               {% if zone in zone_config %}
+                  {% set t = zone_config[zone].presence_time|int %}
+                  {% if t > 0 %}
+                    {% set _ = thresholds.append(t) %}
+                   {% endif %}
+                {% endif %}
+              {% endfor %}
+              {{ (thresholds|min) if thresholds and (thresholds|min) > 0 else presence_time }}
+      
+            - conditions:
+                - condition: template
+                  value_template: "{{ current_should_notify }}"
+              
             current_duration: >-
               {{ (payload.after.end_time - payload.after.start_time)|int
                 if payload.after.end_time else
                 (now().timestamp()|int - payload.after.start_time|int) }}
-            current_zones: "{{ payload.after.current_zones if payload.after.current_zones is defined else [] }}"
+            
             current_should_notify: >-
-              {% set duration = current_duration|int %}
-              {% set pt = presence_time|int %}
-              {% set alert = false %}
-              {% for zone in current_zones %}
-                {% if zone in zone_config %}
-                  {% set t = zone_config[zone].presence_time|int %}
-                  {% if duration >= t %}
-                    {% set alert = true %}
-                    {% break %}
-                  {% endif %}
-                {% else %}
-                  {% if duration >= pt %}
-                    {% set alert = true %}
-                    {% break %}
-                  {% endif %}
-                {% endif %}
-              {% endfor %}
-              {{ current_zones|length > 0 and alert }}
+              {{ current_zones|length > 0 and current_duration|int >= current_zone_threshold|int }}
 
         # Send notification if conditions are met
         - choose:
@@ -254,38 +241,11 @@ action:
         # Stop if we timed out
         - condition: template
           value_template: "{{ wait.trigger is not none }}"
-
-        # Update variables with new payload
-        - variables:
-            payload: "{{ wait.trigger.payload_json }}"
-            current_duration: >-
-              {{ (payload.after.end_time - payload.after.start_time)|int
-                if payload.after.end_time else
-                (now().timestamp()|int - payload.after.start_time|int) }}
-            current_zones: "{{ payload.after.current_zones if payload.after.current_zones is defined else [] }}"
-            current_should_notify: >-
-              {% set duration = current_duration|int %}
-              {% set pt = presence_time|int %}
-              {% set alert = false %}
-              {% for zone in current_zones %}
-                {% if zone in zone_config %}
-                  {% set t = zone_config[zone].presence_time|int %}
-                  {% if duration >= t %}
-                    {% set alert = true %}
-                    {% break %}
-                  {% endif %}
-                {% else %}
-                  {% if duration >= pt %}
-                    {% set alert = true %}
-                    {% break %}
-                  {% endif %}
-                {% endif %}
-              {% endfor %}
-              {{ current_zones|length > 0 and alert }}
-
-      # Stop looping once Frigate sends the "end" for this event or times out
+      # Stop looping once Frigate sends the "end" for this event, times out, or notification sent
       until: >-
         {% if wait.trigger is none %}
+          true
+        {% elif initial_notification_sent %}
           true
         {% else %}
           {{ wait.trigger.payload_json.type == 'end' }}
