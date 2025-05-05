@@ -154,7 +154,7 @@ action:
               {% endfor %}
               {{ (thresholds|min) if thresholds and (thresholds|min) > 0 else presence_time }}
             current_should_notify: >
-              {{ current_zones|length > 0 and current_duration|int >= current_zone_threshold|int }}
+              {{ current_duration|int >= current_zone_threshold|int }}
 
         # Send notification if conditions are met
         - choose:
