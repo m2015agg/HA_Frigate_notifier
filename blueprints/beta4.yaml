@@ -101,6 +101,7 @@ variables:
   critical_alert: !input critical_alert
   mqtt_topic: !input mqtt_topic
   initial_notification_sent: false
+  notified_objects: []
 
   # parse zone_settings into a dict of { zone: {presence_time: seconds} }
   zone_config: >-
@@ -160,12 +161,17 @@ action:
               {{ (thresholds|min) if thresholds and (thresholds|min) > 0 else presence_time }}
             current_should_notify: >
               {{ current_duration|int >= current_zone_threshold|int }}
+            current_objects: >
+              {{ payload.after.data.objects if payload.after.data.objects is defined else [] }}
+            new_objects: >
+              {{ current_objects | reject('in', notified_objects) | list }}
 
         # Send notification if conditions are met
         - choose:
             - conditions:
                 - condition: template
-                  value_template: "{{ current_should_notify }}"
+                  value_template: >
+                    {{ (not initial_notification_sent and current_should_notify) or (initial_notification_sent and (new_objects | length > 0)) }}
               sequence:
                 - service: logbook.log
                   data:
@@ -177,11 +183,16 @@ action:
                       Objects: {{ payload.after.data.objects|join(', ') }}
                       Zones: {{ current_zones|join(', ') }}
                       Notification sent: {{ initial_notification_sent }}
+                      New objects: {{ new_objects|join(', ') }}
                 - device_id: !input notify_device
                   domain: mobile_app
                   type: notify
                   message: >-
-                    A {{ payload.after.data.objects | sort | join(", ") | title }} was detected on {{ camera_id }}.
+                    {% if not initial_notification_sent %}
+                      A {{ payload.after.data.objects | sort | join(", ") | title }} was detected on {{ camera_id }}.
+                    {% else %}
+                      Additional object(s) detected: {{ new_objects | join(", ") | title }} on {{ camera_id }}.
+                    {% endif %}
                   data:
                     tag: "{{ full_event_id }}"
                     title: "Frigate Detection"
@@ -205,6 +216,7 @@ action:
                         uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/master.m3u8"
                 - variables:
                     initial_notification_sent: true
+                    notified_objects: "{{ notified_objects + new_objects }}"
                 - choose:
                     - conditions: "{{ enable_homekit }}"
                       sequence:
@@ -249,8 +261,6 @@ action:
           value_template: "{{ wait.trigger is not none }}"
       until: >-
         {% if wait.trigger is none %}
-          true
-        {% elif initial_notification_sent %}
           true
         {% else %}
           {{ wait.trigger.payload_json.type == 'end' }}
