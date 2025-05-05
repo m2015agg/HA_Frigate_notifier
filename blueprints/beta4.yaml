@@ -119,7 +119,7 @@ variables:
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
-  current_zones: "{{ payload.after.current_zones if payload.after.current_zones is defined else [] }}"
+  current_zones: "{{ payload.after.data.zones if payload.after.data.zones is defined else [] }}"
   duration: >-
     {{ (payload.after.end_time - payload.after.start_time)|int
       if payload.after.end_time else
