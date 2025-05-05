@@ -1,6 +1,6 @@
 blueprint:
   name: Frigate Presence Detection Notifications
-  source_url: "https://github.com/m2015agg/HA_Frigate_notifier/blob/main/blueprints/beta4.yaml"
+  source_url: "https://raw.githubusercontent.com/m2015agg/HA_Frigate_notifier/main/blueprints/beta4.yaml"
   description: >
     Spawn a single loop on each new Frigate event for watched cameras.
     Only notify when an object is detected in a zone and remains there for the specified presence time.
