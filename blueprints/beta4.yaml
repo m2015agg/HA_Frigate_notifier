@@ -43,7 +43,7 @@ blueprint:
 
     base_url:
       name: Home Assistant URL
-      default: ""
+      default: "https://nipu0uvuj0g8ngrg0sv9ekt1mihje4uo.ui.nabu.casa"
       selector:
         text: {}
 
@@ -130,8 +130,18 @@ action:
       sequence:
         # Re-evaluate current state
         - variables:
-            current_zones: "{{ payload.after.current_zones if payload.after.current_zones is defined else [] }}"
-            # Determine the minimum threshold for the current zones
+            current_zones: >
+              {% if payload.type == 'end' %}
+                {{ payload.before.data.zones if payload.before.data.zones is defined else [] }}
+              {% else %}
+                {{ payload.after.current_zones if payload.after.current_zones is defined else [] }}
+              {% endif %}
+            current_duration: >
+              {% if payload.type == 'end' %}
+                {{ (payload.after.end_time - payload.after.start_time)|int }}
+              {% else %}
+                {{ (now().timestamp()|int - payload.after.start_time|int) }}
+              {% endif %}
             current_zone_threshold: >-
               {% set thresholds = [] %}
               {% for zone in current_zones %}
@@ -143,11 +153,7 @@ action:
                 {% endif %}
               {% endfor %}
               {{ (thresholds|min) if thresholds and (thresholds|min) > 0 else presence_time }}
-            current_duration: >-
-              {{ (payload.after.end_time - payload.after.start_time)|int
-                if payload.after.end_time else
-                (now().timestamp()|int - payload.after.start_time|int) }}
-            current_should_notify: >-
+            current_should_notify: >
               {{ current_zones|length > 0 and current_duration|int >= current_zone_threshold|int }}
 
         # Send notification if conditions are met
