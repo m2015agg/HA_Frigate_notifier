@@ -126,6 +126,11 @@ variables:
       (now().timestamp()|int - payload.after.start_time|int) }}
 
 action:
+  - service: logbook.log
+    data:
+      name: "Frigate Debug"
+      message: >
+        zone_settings={{ zone_settings }} zone_config={{ zone_config }}
   - repeat:
       sequence:
         # Re-evaluate current state
