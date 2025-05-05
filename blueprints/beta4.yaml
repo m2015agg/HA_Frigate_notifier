@@ -129,9 +129,18 @@ variables:
 action:
   - service: logbook.log
     data:
-      name: "Frigate Debug"
+      name: "Frigate Debug - Initial State"
       message: >
-        zone_settings={{ zone_settings }} zone_config={{ zone_config }}
+        Event: {{ event_id }}
+        Camera: {{ camera_id }}
+        Zone Settings: {{ zone_settings }}
+        Zone Config: {{ zone_config }}
+        Current Zones: {{ current_zones }}
+        Duration: {{ duration }}
+        Presence Time: {{ presence_time }}
+        Initial Notification Sent: {{ initial_notification_sent }}
+        Notified Objects: {{ notified_objects }}
+
   - repeat:
       sequence:
         # Re-evaluate current state
@@ -166,6 +175,20 @@ action:
             new_objects: >
               {{ current_objects | reject('in', notified_objects) | list }}
 
+        - service: logbook.log
+          data:
+            name: "Frigate Debug - Loop State"
+            message: >
+              Event: {{ event_id }}
+              Type: {{ payload.type }}
+              Current Zones: {{ current_zones }}
+              Current Duration: {{ current_duration }}s
+              Zone Threshold: {{ current_zone_threshold }}s
+              Should Notify: {{ current_should_notify }}
+              Current Objects: {{ current_objects }}
+              New Objects: {{ new_objects }}
+              Initial Notification Sent: {{ initial_notification_sent }}
+
         # Send notification if conditions are met
         - choose:
             - conditions:
@@ -175,7 +198,7 @@ action:
               sequence:
                 - service: logbook.log
                   data:
-                    name: "Frigate Event"
+                    name: "Frigate Debug - Sending Notification"
                     message: >-
                       Event {{ event_id }} ({{ camera_id }})
                       Type: {{ payload.type }}
