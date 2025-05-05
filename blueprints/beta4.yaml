@@ -1,6 +1,6 @@
 blueprint:
   name: Frigate Presence Detection Notifications
-  source_url: "https://raw.githubusercontent.com/m2015agg/HA_Frigate_notifier/main/blueprints/beta4.yaml"
+  source_url: "https://github.com/m2015agg/HA_Frigate_notifier/blob/main/blueprints/beta4.yaml"
   description: >
     Spawn a single loop on each new Frigate event for watched cameras.
     Only notify when an object is detected in a zone and remains there for the specified presence time.
@@ -119,12 +119,11 @@ variables:
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
-  
-
-
-
-
-
+  current_zones: "{{ payload.after.current_zones if payload.after.current_zones is defined else [] }}"
+  duration: >-
+    {{ (payload.after.end_time - payload.after.start_time)|int
+      if payload.after.end_time else
+      (now().timestamp()|int - payload.after.start_time|int) }}
 
 action:
   - repeat:
@@ -132,28 +131,22 @@ action:
         # Re-evaluate current state
         - variables:
             current_zones: "{{ payload.after.current_zones if payload.after.current_zones is defined else [] }}"
-              # Determine the minimum threshold for the current zones
+            # Determine the minimum threshold for the current zones
             current_zone_threshold: >-
               {% set thresholds = [] %}
-                {% for zone in current_zones %}
-               {% if zone in zone_config %}
+              {% for zone in current_zones %}
+                {% if zone in zone_config %}
                   {% set t = zone_config[zone].presence_time|int %}
                   {% if t > 0 %}
                     {% set _ = thresholds.append(t) %}
-                   {% endif %}
+                  {% endif %}
                 {% endif %}
               {% endfor %}
               {{ (thresholds|min) if thresholds and (thresholds|min) > 0 else presence_time }}
-      
-            - conditions:
-                - condition: template
-                  value_template: "{{ current_should_notify }}"
-              
             current_duration: >-
               {{ (payload.after.end_time - payload.after.start_time)|int
                 if payload.after.end_time else
                 (now().timestamp()|int - payload.after.start_time|int) }}
-            
             current_should_notify: >-
               {{ current_zones|length > 0 and current_duration|int >= current_zone_threshold|int }}
 
@@ -251,8 +244,8 @@ action:
           {{ wait.trigger.payload_json.type == 'end' }}
         {% endif %}
 
-  # Log completion
-  - service: logbook.log
+# Log completion
+- service: logbook.log
     data:
       name: "Frigate Event"
       message: >
