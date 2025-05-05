@@ -180,11 +180,11 @@ action:
                   data:
                     tag: "{{ event_id }}"
                     title: "Frigate Presence Detection"
-                    image: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                    image: "{{ base_url }}/api/frigate/review/{{ full_event_id }}/snapshot.jpg"
+                    clickAction: "{{ base_url }}/api/frigate/review/{{ full_event_id }}/clip.mp4"
                     tap_action:
                       action: "URI"
-                      uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                      uri: "{{ base_url }}/api/frigate/review/{{ full_event_id }}/clip.mp4"
                     importance: "{{ 'low' if initial_notification_sent else 'high' }}"
                     priority: "{{ 'low' if initial_notification_sent else 'high' }}"
                     sound: "{{ 'none' if initial_notification_sent else 'default' }}"
@@ -192,10 +192,10 @@ action:
                     actions:
                       - label: "View Live"
                         action: "URI"
-                        uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                        uri: "{{ base_url }}/api/frigate/review/{{ full_event_id }}/clip.mp4"
                       - label: "View Stream"
                         action: "URI"
-                        uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/master.m3u8"
+                        uri: "{{ base_url }}/api/frigate/review/{{ full_event_id }}/master.m3u8"
                 - variables:
                     initial_notification_sent: true
                 - choose:
