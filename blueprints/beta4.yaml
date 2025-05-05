@@ -106,9 +106,9 @@ variables:
   # parse zone_settings into a dict of { zone: {presence_time: seconds} }
   zone_config: >-
     {% set cfg = {} %}
-    {% for line in zone_settings %}
-      {% if ':' in line %}
-        {% set parts = line.split(':', 1) %}
+    {% for setting in zone_settings %}
+      {% set parts = setting.split(':', 1) %}
+      {% if parts | length == 2 %}
         {% set z = parts[0]|trim %}
         {% set v = parts[1]|trim|int(-1) %}
         {% if v >= 0 %}
@@ -120,6 +120,7 @@ variables:
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
+  camera_entity: "{{ 'camera.' ~ camera_id | lower | replace('-', '_') }}"
   current_zones: "{{ payload.after.data.zones if payload.after.data.zones is defined else [] }}"
   duration: >-
     {{ (payload.after.end_time - payload.after.start_time)|int
@@ -133,6 +134,8 @@ action:
       message: >
         Event: {{ event_id }}
         Camera: {{ camera_id }}
+        Camera Entity: {{ camera_entity }}
+        Watched Cameras: {{ cameras }}
         Zone Settings: {{ zone_settings }}
         Zone Config: {{ zone_config }}
         Current Zones: {{ current_zones }}
@@ -181,6 +184,8 @@ action:
             message: >
               Event: {{ event_id }}
               Type: {{ payload.type }}
+              Camera: {{ camera_id }}
+              Camera Entity: {{ camera_entity }}
               Current Zones: {{ current_zones }}
               Current Duration: {{ current_duration }}s
               Zone Threshold: {{ current_zone_threshold }}s
