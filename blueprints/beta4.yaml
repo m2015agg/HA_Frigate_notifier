@@ -237,6 +237,7 @@ action:
                     entity_id: "camera.{{ camera_id | replace('-','_') | lower }}"
                     actions:
                       - label: "View Live"
+                        title: "View Live"
                         action: "URI"
                         uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
                       - label: "View Stream"
