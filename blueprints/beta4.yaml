@@ -234,7 +234,6 @@ action:
         # Stop if we timed out
         - condition: template
           value_template: "{{ wait.trigger is not none }}"
-      # Stop looping once Frigate sends the "end" for this event, times out, or notification sent
       until: >-
         {% if wait.trigger is none %}
           true
@@ -243,9 +242,7 @@ action:
         {% else %}
           {{ wait.trigger.payload_json.type == 'end' }}
         {% endif %}
-
-# Log completion
-- service: logbook.log
+  - service: logbook.log
     data:
       name: "Frigate Event"
       message: >
