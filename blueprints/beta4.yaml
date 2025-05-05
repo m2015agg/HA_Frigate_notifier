@@ -52,7 +52,7 @@ blueprint:
       default: []
       selector:
         text:
-          multiline: true
+          multiline: false
           multiple: true
 
     timeout:
