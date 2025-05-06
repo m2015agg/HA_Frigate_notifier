@@ -93,6 +93,7 @@ variables:
   mqtt_topic: !input mqtt_topic
   initial_notification_sent: false
   notified_objects: []
+  zone_entry_time: null
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
@@ -121,6 +122,14 @@ action:
   - repeat:
       sequence:
         # Re-evaluate current state
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: "{{ current_zones | length > 0 and zone_entry_time is none }}"
+              sequence:
+                - variables:
+                    zone_entry_time: "{{ now().timestamp()|int }}"
+
         - variables:
             current_zones: >
               {% if payload.type == 'end' %}
@@ -130,9 +139,9 @@ action:
               {% endif %}
             current_duration: >
               {% if payload.type == 'end' %}
-                {{ (payload.after.end_time - payload.after.start_time)|int }}
+                {{ (payload.after.end_time - zone_entry_time)|int if zone_entry_time else 0 }}
               {% else %}
-                {{ (now().timestamp()|int - payload.after.start_time|int) }}
+                {{ (now().timestamp()|int - zone_entry_time)|int if zone_entry_time else 0 }}
               {% endif %}
             current_zone_threshold: >-
               {% set thresholds = [] %}
@@ -252,10 +261,12 @@ action:
 
       until: >-
         {% if wait.trigger is none %}
-        true
+          true
         {% else %}
-          wait.trigger.payload_json.type == 'end'
-          and (wait.trigger.payload_json.after.data.zones | length) > 0
+          {{ 
+            wait.trigger.payload_json.type == 'end' 
+            and (wait.trigger.payload_json.after.data.zones | length) > 0 
+          }}
         {% endif %}
 
 
