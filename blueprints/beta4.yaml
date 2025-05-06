@@ -250,7 +250,8 @@ action:
               topic: "{{ mqtt_topic }}"
               value_template: >-
                 {{ trigger.payload_json.after.id == full_event_id
-                  and trigger.payload_json.type in ['update','end'] }}
+                  and trigger.payload_json.type in ['update','end']
+                  and trigger.payload_json.after.camera == camera_id }}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
@@ -266,6 +267,7 @@ action:
           {{ 
             wait.trigger.payload_json.type == 'end' 
             and (wait.trigger.payload_json.after.data.zones | length) > 0 
+            and wait.trigger.payload_json.after.camera == camera_id
           }}
         {% endif %}
 
