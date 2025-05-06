@@ -59,6 +59,7 @@ blueprint:
       selector:
         text:
           multiline: true
+          multiple: false
 
     timeout:
       name: Update Timeout (minutes)
@@ -112,14 +113,14 @@ variables:
     {% set cfg = {} %}
     {% set raw = zone_settings or '' %}
     {% for line in raw.splitlines() %}
-      {% if ':' in line %}
+     {% if ':' in line %}
         {% set parts = line.split(':', 1) %}
-        {% set zone = parts[0].strip() %}
+        {% set zone = parts[0].strip()|lower %}
         {% set secs = parts[1].strip()|int(-1) %}
         {% if secs >= 0 %}
           {% set cfg = cfg | combine({ (zone): {'presence_time': secs} }) %}
         {% endif %}
-      {% endif %}
+        {% endif %}
     {% endfor %}
     {{ cfg }}
 
