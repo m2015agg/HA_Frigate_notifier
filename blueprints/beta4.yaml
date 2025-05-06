@@ -245,7 +245,7 @@ action:
                       - label: "Open Frigate Dashboard"
                         title: "Open Frigate Dashboard"
                         action: "URI"
-                        uri: "/api/hassio_ingress/frigate"
+                        uri: "{{ base_url }}/api/hassio_ingress/frigate"
                       - label: "View Clip"
                         title: "View Clip"
                         action: "URI"
