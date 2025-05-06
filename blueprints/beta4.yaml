@@ -77,7 +77,8 @@ trigger:
     value_template: >-
       {% set t = trigger.payload_json.type|default('') %}
       {% set cam = 'camera.' ~ (trigger.payload_json.after.camera|lower) %}
-      {{ t == 'new' and cam in (cameras|map('lower')|list) }}
+      {% set is_new = t == 'new' and trigger.payload_json.after.id is defined %}
+      {{ is_new and cam in (cameras|map('lower')|list) }}
 
 variables:
   payload: "{{ trigger.payload_json }}"
@@ -95,6 +96,7 @@ variables:
   notified_objects: []
   zone_entry_time: null
   current_event_id: "{{ full_event_id }}"
+  current_event_type: "{{ payload.type }}"
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
@@ -252,7 +254,8 @@ action:
               value_template: >-
                 {{ trigger.payload_json.after.id == current_event_id
                   and trigger.payload_json.type in ['update','end']
-                  and trigger.payload_json.after.camera == camera_id }}
+                  and trigger.payload_json.after.camera == camera_id
+                  and trigger.payload_json.after.id is defined }}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
@@ -270,6 +273,7 @@ action:
             and (wait.trigger.payload_json.after.data.zones | length) > 0 
             and wait.trigger.payload_json.after.camera == camera_id
             and wait.trigger.payload_json.after.id == current_event_id
+            and wait.trigger.payload_json.after.id is defined
           }}
         {% endif %}
 
