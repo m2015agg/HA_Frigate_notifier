@@ -1,10 +1,12 @@
 blueprint:
   # Blueprint metadata
-  name: Hybrid Frigate Loiter & Motion Notifications
+  name: Frigate Presence Detection Notifications
   source_url: "https://raw.githubusercontent.com/m2015agg/HA_Frigate_notifier/main/blueprints/stable.yaml"
   description: >
-    Notify once when Frigate reports true loitering or when an object remains
-    motionless for a specified duration. Minimal UI, minimal false positives.
+    Spawn a single loop on each new Frigate event for watched cameras.
+    Only notify when an object is detected in a zone and remains there for the specified presence time.
+    This prevents notifications for quick pass-throughs and only alerts for sustained presence.
+    Additional notifications are sent when new objects are detected during the event.
   domain: automation
 
   # Input configuration section
@@ -28,10 +30,10 @@ blueprint:
           filter:
             integration: mobile_app
 
-    # Threshold for Frigate's built-in loitering detection
-    loiter_threshold:
-      name: Loiter Threshold (seconds)
-      description: Seconds Frigate must flag `pending_loitering` before notifying
+    # Presence time
+    presence_time:
+      name: Presence Time (seconds)
+      description: How long an object must be present in a zone before triggering a notification
       default: 15
       selector:
         number:
@@ -39,29 +41,10 @@ blueprint:
           max: 3600
           unit_of_measurement: seconds
 
-    # Threshold for raw motionless duration
-    motionless_threshold:
-      name: Motionless Threshold (seconds)
-      description: Seconds an object must remain still to notify
-      default: 30
-      selector:
-        number:
-          min: 0
-          max: 3600
-          unit_of_measurement: seconds
-
-    # Prevent duplicate notifications for the same event
-    alert_once:
-      name: Alert Once
-      description: Only send one notification per unique event
-      default: true
-      selector:
-        boolean: {}
-
     mqtt_topic:
       name: MQTT Topic
-      description: Topic where Frigate publishes detection events (usually frigate/events).
-      default: frigate/events
+      description: Topic where Frigate publishes detection events (usually frigate/reviews).
+      default: frigate/reviews
       selector:
         text: {}
 
@@ -69,220 +52,275 @@ blueprint:
     base_url:
       name: Home Assistant URL
       description: External URL for clips/snapshots (omit trailing slash)
-      default: ""
+      default: "https://nipu0uvuj0g8ngrg0sv9ekt1mihje4uo.ui.nabu.casa"
       selector:
         text: {}
 
-    # Zone-specific loitering settings
+    # Zone-specific presence settings
     zone_settings:
       name: Zone Settings (YAML)
       description: >-
-        Optional YAML configuration for zone-specific loitering times. Example:
+        Optional YAML configuration for zone-specific presence times. Example:
         street:15
         Yard:0
         Garage_Zone:5
-      default: ""
+      default: []
       selector:
         text:
-          multiline: true
+          multiline: false
+          multiple: true
 
-# Run automation in single mode (one instance at a time)
-mode: single
+    # Update timeout
+    timeout:
+      name: Update Timeout (minutes)
+      description: How long to wait before considering an event ended
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: minutes
+
+    # Enable HomeKit alerts
+    enable_homekit:
+      name: Enable HomeKit Alerts
+      description: Enable HomeKit notifications for detected objects
+      default: true
+      selector:
+        boolean: {}
+
+    # Enable critical alerts
+    critical_alert:
+      name: Enable Critical Alerts
+      description: Enable critical notifications for detected objects
+      default: false
+      selector:
+        boolean: {}
+
+# Run automation in queued mode (multiple instances at a time)
+mode: queued
 
 # Trigger on MQTT updates from Frigate
 trigger:
-  platform: mqtt
-  topic: !input mqtt_topic
-  id: frigate-event
-  value_template: "{{ value_json.type in ['new','update'] }}"
+  - platform: mqtt
+    topic: !input mqtt_topic
+    id: frigate-new
+    value_template: >-
+      {% set t = trigger.payload_json.type|default('') %}
+      {% set cam = 'camera.' ~ (trigger.payload_json.after.camera|lower) %}
+      {{ t in ['new', 'update', 'end'] and cam in (cameras|map('lower')|list) }}
 
 # Variables used in the automation
 variables:
   # Extract data from the MQTT payload
   payload: "{{ trigger.payload_json }}"
   full_event_id: "{{ payload.after.id }}"
-  event_id: "{{ payload.after.id[-5:] if payload.after.id is string else '' }}"
-  # Check if Frigate has flagged this as loitering
-  status: "{{ payload.after.pending_loitering }}"
-  # Get actual duration from timestamps
-  duration: "{{ (payload.after.end_time - payload.after.start_time) | int if payload.after.end_time else (payload.after.frame_time - payload.after.start_time) | int }}"
-  camera_id: "{{ payload.after.camera }}"
-  
+  event_id: "{{ full_event_id[-5:] }}"
   # Get input variables
   cameras: !input cameras
   notify_device: !input notify_device
-  loiter_threshold: !input loiter_threshold
-  motionless_threshold: !input motionless_threshold
+  presence_time: !input presence_time
   base_url: !input base_url
-  alert_once: !input alert_once
   zone_settings: !input zone_settings
-  
-  # Check if the camera is one we're monitoring
-  is_watched_camera: >-
-    {% set camera_name = 'camera.' ~ camera_id | lower %}
-    {% set camera_list = cameras | map('lower') | list %}
-    {{ camera_name in camera_list }}
+  timeout: !input timeout
+  enable_homekit: !input enable_homekit
+  critical_alert: !input critical_alert
+  mqtt_topic: !input mqtt_topic
+  initial_notification_sent: false
+  notified_objects: []
   
   # Parse zone settings
   zone_config: >-
-    {% if zone_settings %}
-      {% set config = {} %}
-      {% for line in zone_settings.split('\n') %}
-        {% if ':' in line %}
-          {% set parts = line.split(':') %}
-          {% if parts | length == 2 %}
-            {% set zone = parts[0] | trim %}
-            {% set value = parts[1] | trim %}
-            {% if value | int(0) >= 0 %}
-              {% set config = config | combine({zone: {'loitering_time': value | int}}) %}
-            {% endif %}
-          {% endif %}
+    {% set cfg = {} %}
+    {% for line in zone_settings %}
+      {% if ':' in line %}
+        {% set parts = line.split(':', 1) %}
+        {% set z = parts[0]|trim %}
+        {% set v = parts[1]|trim|int(-1) %}
+        {% if v >= 0 %}
+          {% set cfg = cfg | combine({z: {'presence_time': v}}) %}
         {% endif %}
-      {% endfor %}
-      {{ config }}
-    {% else %}
-      {{ {} }}
-    {% endif %}
-  
-  # Get the current zones the object is in
-  current_zones: "{{ payload.after.current_zones }}"
-  
-  # Check if we've hit the loitering threshold
-  loiter_cross: >-
-    {% set zone_time = namespace(value=loiter_threshold) %}
-    {% for zone in current_zones %}
-      {% if zone in zone_config %}
-        {% set zone_time.value = zone_config[zone].loitering_time %}
       {% endif %}
     {% endfor %}
-    {{ duration >= zone_time.value }}
-
-  # Check if we've hit the motionless threshold
-  motionless_cross: >-
-    {{ duration >= motionless_threshold }}
+    {{ cfg }}
   
-  # Combine both conditions - notify if either is true
-  should_notify: >-
-    {{ (loiter_cross or motionless_cross) }}
-
-  # Check if we've already notified for this event
-  already_notified: >-
-    {% set current = states('input_text.frigate_notified_events') %}
-    {% if current == 'unknown' or current == '' %}
-      {{ event_id }}
-    {% else %}
-      {% set seen = current.split(',') %}
-      {% set new_list = seen + [event_id] %}
-      {{ new_list[-20:] | join(',') }}
-    {% endif %}
+  # Basic event info
+  camera_id: "{{ payload.after.camera }}"
+  current_zones: "{{ payload.after.data.zones if payload.after.data.zones is defined else [] }}"
+  duration: >-
+    {{ (payload.after.end_time - payload.after.start_time)|int
+      if payload.after.end_time else
+      (now().timestamp()|int - payload.after.start_time|int) }}
 
 # Conditions that must be met to trigger the action
 condition:
   # Only notify for watched cameras and when thresholds are met
   - condition: template
-    value_template: >-
-      {{ is_watched_camera and should_notify }}
-
-  # Prevent duplicate notifications using a list of seen events
-  - condition: template
-    value_template: >-
-      {{ not (alert_once and already_notified) }}
+    value_template: >
+      {{ camera_id in cameras|map('lower')|list }}
 
 # Actions to perform when conditions are met
 action:
-  # Log every automation trigger
   - service: logbook.log
     data:
-      name: Frigate Automation Debug
+      name: "Frigate Debug - Initial State"
       message: >
-        AUTOMATION TRIGGERED:
-        Topic: {{ trigger.topic }}
-        Payload: {{ trigger.payload }}
-        
-        VARIABLES:
-        - Event ID: {{ event_id }}
-        - Full Event ID: {{ full_event_id }}
-        - Status: {{ status }}
-        - Duration: {{ duration }}
-        - Camera: {{ camera_id }}
-        - Current Zones: {{ current_zones }}
-        - Loiter Cross: {{ loiter_cross }}
-        - Motionless Cross: {{ motionless_cross }}
-        - Should Notify: {{ should_notify }}
-        - Already Notified: {{ already_notified }}
-        - Current List: {{ states('input_text.frigate_notified_events') }}
-        
-        CONDITIONS:
-        - Is Watched Camera: {{ is_watched_camera }}
-        - Should Notify: {{ should_notify }}
-        - Alert Once: {{ alert_once }}
-        - Already Notified: {{ already_notified }}
+        Event: {{ event_id }}
+        Camera: {{ camera_id }}
+        Zone Settings: {{ zone_settings }}
+        Zone Config: {{ zone_config }}
+        Current Zones: {{ current_zones }}
+        Duration: {{ duration }}
+        Presence Time: {{ presence_time }}
+        Initial Notification Sent: {{ initial_notification_sent }}
+        Notified Objects: {{ notified_objects }}
 
-  # Send mobile notification with context-aware message
-  - device_id: !input notify_device
-    domain: mobile_app
-    type: notify
-    message: >
-      {% if loiter_cross %}
-        Loitering detected on {{ camera_id }} - Object loitering for {{ duration }}s.
-      {% else %}
-        Extended presence on {{ camera_id }} - Object stationary for {{ duration }}s.
-      {% endif %}
-    data:
-      tag: "{{ event_id }}"
-      image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-      clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
-
-  # Only update the list of seen events after sending notification
-  - service: input_text.set_value
-    target:
-      entity_id: input_text.frigate_notified_events
-    data:
-      value: >-
-        {% set current = states('input_text.frigate_notified_events') %}
-        {% if current == 'unknown' or current == '' %}
-          {{ event_id }}
-        {% else %}
-          {% set seen = current.split(',') %}
-          {% set new_list = seen + [event_id] %}
-          {{ new_list[-20:] | join(',') }}
-        {% endif %}
-
-  # Update notification block
-  - choose:
-      - conditions:
-          - condition: template
-            value_template: >-
-              {{ should_notify and (
-                (update_type == 'end' and not initial_notification_sent and duration >= loiter_threshold)
-                or significant_change
-              ) }}
+  - repeat:
       sequence:
-        - device_id: !input notify_device
-          domain: mobile_app
-          type: notify
-          message: >
-            {% if loiter_cross %}
-              Loitering detected on {{ camera_id }} - Object loitering for {{ duration }}s.
-            {% else %}
-              Extended presence on {{ camera_id }} - Object stationary for {{ duration }}s.
-            {% endif %}
-          data:
-            tag: "{{ event_id }}"
-            image: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpg"
-            clickAction: "{{ base_url if base_url else '' }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+        # Re-evaluate current state
+        - variables:
+            current_zones: >
+              {% if payload.type == 'end' %}
+                {{ payload.before.data.zones if payload.before.data.zones is defined else [] }}
+              {% else %}
+                {{ payload.after.current_zones if payload.after.current_zones is defined else [] }}
+              {% endif %}
+            current_duration: >
+              {% if payload.type == 'end' %}
+                {{ (payload.after.end_time - payload.after.start_time)|int }}
+              {% else %}
+                {{ (now().timestamp()|int - payload.after.start_time|int) }}
+              {% endif %}
+            current_zone_threshold: >-
+              {% set thresholds = [] %}
+              {% for zone in current_zones %}
+                {% if zone in zone_config %}
+                  {% set t = zone_config[zone].presence_time|int %}
+                  {% if t > 0 %}
+                    {% set _ = thresholds.append(t) %}
+                  {% endif %}
+                {% endif %}
+              {% endfor %}
+              {{ (thresholds|min) if thresholds and (thresholds|min) > 0 else presence_time }}
+            current_should_notify: >
+              {{ current_duration|int >= current_zone_threshold|int }}
+            current_objects: >
+              {{ payload.after.data.objects if payload.after.data.objects is defined else [] }}
+            new_objects: >
+              {{ current_objects | reject('in', notified_objects) | list }}
 
-  # Only update the list of seen events after sending notification
-  - service: input_text.set_value
-    target:
-      entity_id: input_text.frigate_notified_events
-    data:
-      value: >-
-        {% set current = states('input_text.frigate_notified_events') %}
-        {% if current == 'unknown' or current == '' %}
-          {{ event_id }}
+        - service: logbook.log
+          data:
+            name: "Frigate Debug - Loop State"
+            message: >
+              Event: {{ event_id }}
+              Type: {{ payload.type }}
+              Current Zones: {{ current_zones }}
+              Current Duration: {{ current_duration }}s
+              Zone Threshold: {{ current_zone_threshold }}s
+              Should Notify: {{ current_should_notify }}
+              Current Objects: {{ current_objects }}
+              New Objects: {{ new_objects }}
+              Initial Notification Sent: {{ initial_notification_sent }}
+
+        # Send notification if conditions are met
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: >
+                    {{ (not initial_notification_sent and current_should_notify) or (initial_notification_sent and (new_objects | length > 0)) }}
+              sequence:
+                - service: logbook.log
+                  data:
+                    name: "Frigate Debug - Sending Notification"
+                    message: >-
+                      Event {{ event_id }} ({{ camera_id }})
+                      Type: {{ payload.type }}
+                      Duration: {{ current_duration }}s
+                      Objects: {{ payload.after.data.objects|join(', ') }}
+                      Zones: {{ current_zones|join(', ') }}
+                      Notification sent: {{ initial_notification_sent }}
+                      New objects: {{ new_objects|join(', ') }}
+                - device_id: !input notify_device
+                  domain: mobile_app
+                  type: notify
+                  message: >-
+                    {% if not initial_notification_sent %}
+                      A {{ payload.after.data.objects | sort | join(", ") | title }} was detected on {{ camera_id }}.
+                    {% else %}
+                      Additional object(s) detected: {{ new_objects | join(", ") | title }} on {{ camera_id }}.
+                    {% endif %}
+                  data:
+                    tag: "{{ full_event_id }}"
+                    title: "Frigate Detection"
+                    image: "{{ base_url }}/api/frigate/notifications/{{ payload.after.data.detections[0] }}/thumbnail.jpg"
+                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                    tap_action:
+                      action: "URI"
+                      uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                    importance: "{{ 'low' if initial_notification_sent else 'high' }}"
+                    priority: "{{ 'low' if initial_notification_sent else 'high' }}"
+                    sound: "{{ 'none' if initial_notification_sent else 'default' }}"
+                    critical: "{{ critical_alert }}"
+                    when: "{{ payload.after.start_time|int }}"
+                    entity_id: "camera.{{ camera_id | replace('-','_') | lower }}"
+                    actions:
+                      - label: "View Live"
+                        action: "URI"
+                        uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                      - label: "View Stream"
+                        action: "URI"
+                        uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/master.m3u8"
+                - variables:
+                    initial_notification_sent: true
+                    notified_objects: "{{ notified_objects + new_objects }}"
+                - choose:
+                    - conditions: "{{ enable_homekit }}"
+                      sequence:
+                        - service: input_boolean.turn_on
+                          target:
+                            entity_id: >
+                              input_boolean.frigate_{{ camera_id|lower }}_alert
+                        - delay: 5
+                        - service: input_boolean.turn_off
+                          target:
+                            entity_id: >
+                              input_boolean.frigate_{{ camera_id|lower }}_alert
+
+        # Wait for the next update or final end
+        - wait_for_trigger:
+            - trigger: mqtt
+              topic: "{{ mqtt_topic }}"
+              value_template: >-
+                {{ trigger.payload_json.after.id == full_event_id
+                  and trigger.payload_json.type in ['update','end'] }}
+          timeout:
+            minutes: "{{ timeout }}"
+          continue_on_timeout: false
+
+        # Log if we timed out
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: "{{ wait.trigger is none }}"
+              sequence:
+                - service: logbook.log
+                  data:
+                    name: "Frigate Event"
+                    message: >
+                      Timeout - Event {{ event_id }} ({{ camera_id }})
+                      Duration: {{ duration }}s
+                      Timeout: {{ timeout }} minutes
+                      loopTime: {{ current_duration}}s
+
+        # Stop if we timed out
+        - condition: template
+          value_template: "{{ wait.trigger is not none }}"
+      until: >-
+        {% if wait.trigger is none %}
+          true
+        {% elif initial_notification_sent %}
+          true
         {% else %}
-          {% set seen = current.split(',') %}
-          {% set new_list = seen + [event_id] %}
-          {{ new_list[-20:] | join(',') }}
+          {{ wait.trigger.payload_json.type == 'end' }}
         {% endif %} 
