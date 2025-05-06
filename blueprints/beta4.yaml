@@ -270,11 +270,11 @@ action:
                 - condition: template
                   value_template: "{{ wait.trigger is not none }}"
 
-              until: >-
-                {% if wait.trigger is none %}
-                  true
-                {% else %}
-                  {{ initial_notification_sent }}
-                {% endif %}
+      until: >-
+        {% if wait.trigger is none %}
+          true
+        {% else %}
+          {{ initial_notification_sent }}
+        {% endif %}
 
 
