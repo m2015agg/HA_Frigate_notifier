@@ -110,13 +110,16 @@ variables:
 
   zone_config: >-
     {% set cfg = {} %}
-    {% if zone_settings is mapping %}
-      {% for zone, seconds in zone_settings.items() %}
-        {% if seconds is number and seconds >= 0 %}
-          {% set cfg = cfg | combine({ zone: {'presence_time': (seconds|int)} }) %}
+    {% for line in (zone_settings | default('')) .splitlines() %}
+      {% if ':' in line %}
+        {% set parts = line.split(':',1) %}
+        {% set zone = parts[0].strip() %}
+        {% set secs = parts[1].strip()|int(default=-1) %}
+        {% if secs >= 0 %}
+          {% set cfg = cfg | combine({ (zone): {'presence_time': secs} }) %}
         {% endif %}
-      {% endfor %}
-    {% endif %}
+      {% endif %}
+    {% endfor %}
     {{ cfg }}
 
   # Basic event info
