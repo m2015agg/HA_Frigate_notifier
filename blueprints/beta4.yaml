@@ -75,10 +75,9 @@ trigger:
     topic: !input mqtt_topic
     id: frigate-new
     value_template: >-
-      {% set t = trigger.payload_json.type|default('') %}
-      {% set cam = 'camera.' ~ (trigger.payload_json.after.camera|lower) %}
-      {% set is_new = t == 'new' and trigger.payload_json.after.id is defined %}
-      {{ is_new and cam in (cameras|map('lower')|list) }}
+      {% if trigger.payload_json.type == 'new' %}
+        true
+      {% endif %}
 
 variables:
   payload: "{{ trigger.payload_json }}"
