@@ -227,11 +227,11 @@ action:
                     when: "{{ payload.after.start_time|int }}"
                     entity_id: "camera.{{ camera_id | replace('-','_') | lower }}"
                     actions:
-                       - label: "Open Frigate Dashboard"
+                      - label: "Open Frigate Dashboard"
                          title: "Open Frigate Dashboard"
                          action: "URI"
                          uri: "/api/hassio_ingress/frigate"
-                     - label: "View Clip"
+                      - label: "View Clip"
                          title: "View Clip"
                          action: "URI"
                          uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
