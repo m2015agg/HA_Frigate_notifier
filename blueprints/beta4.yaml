@@ -68,7 +68,7 @@ blueprint:
       selector:
         boolean: {}
 
-mode: single
+mode: queued
 
 trigger:
   - platform: mqtt
@@ -246,21 +246,6 @@ action:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
 
-        # Log if we timed out
-        - choose:
-            - conditions:
-                - condition: template
-                  value_template: "{{ wait.trigger is none }}"
-              sequence:
-                - service: logbook.log
-                  data:
-                    name: "Frigate Event"
-                    message: >
-                      Timeout - Event {{ event_id }} ({{ camera_id }})
-                      Duration: {{ duration }}s
-                      Timeout: {{ timeout }} minutes
-                      loopTime: {{ current_duration}}s
-
         # Stop if we timed out
         - condition: template
           value_template: "{{ wait.trigger is not none }}"
@@ -268,6 +253,7 @@ action:
         {% if wait.trigger is none %}
           true
         {% else %}
-          {{ wait.trigger.payload_json.type == 'end' }}
+          wait.trigger.payload_json.type == 'end'
+          and (wait.trigger.payload_json.after.data.zones | length) > 0
         {% endif %}
 
