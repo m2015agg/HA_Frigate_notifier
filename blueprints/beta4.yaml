@@ -50,13 +50,15 @@ blueprint:
     zone_settings:
       name: Zone Settings (YAML)
       description: |
-        Map each zone to its own presence_time. Example:
+        Optional YAML map of per‑zone presence times.  
+        e.g.
+          street: 5
           yard: 1
-          street: 6
-          garage: 3
-      default: {}
+          garage: 4
+      default: ""
       selector:
-        yaml: {}
+        text:
+          multiline: true
 
     timeout:
       name: Update Timeout (minutes)
@@ -106,8 +108,15 @@ variables:
   initial_notification_sent: false
   notified_objects: []
 
-  # parse zone_settings into a dict of { zone: {presence_time: seconds} }
-  zone_config: "{{ zone_settings | parse_zone_settings }}"
+  zone_config: >-
+    {% set raw = (zone_settings | default('{}')) | from_yaml %}
+    {% set cfg = {} %}
+    {% for zone, seconds in raw.items() %}
+      {% if seconds is number and seconds >= 0 %}
+        {% set cfg = cfg | combine({ zone: {'presence_time': (seconds|int)} }) %}
+      {% endif %}
+    {% endfor %}
+    {{ cfg }}
 
   # Basic event info
   camera_id: "{{ payload.after.camera }}"
@@ -143,7 +152,7 @@ action:
               {% if payload.type == 'end' %}
                 {{ payload.before.data.zones if payload.before.data.zones is defined else [] }}
               {% else %}
-                {{ payload.after.current_zones if payload.after.current_zones is defined else [] }}
+                {{ payload.after.data.zones if payload.after.data.zones is defined else [] }}
               {% endif %}
             current_duration: >
               {% if payload.type == 'end' %}
@@ -155,13 +164,13 @@ action:
               {% set thresholds = [] %}
               {% for zone in current_zones %}
                 {% if zone in zone_config %}
-                  {% set t = zone_config[zone] %}
+                  {% set t = zone_config[zone].presence_time|int %}
                   {% if t > 0 %}
                     {% set _ = thresholds.append(t) %}
                   {% endif %}
                 {% endif %}
               {% endfor %}
-              {{ (thresholds|min) if thresholds and (thresholds|min) > 0 else presence_time }}
+              {{ (thresholds|min) if thresholds else presence_time }}
             current_should_notify: >
               {{ current_duration|int >= current_zone_threshold|int }}
             current_objects: >
