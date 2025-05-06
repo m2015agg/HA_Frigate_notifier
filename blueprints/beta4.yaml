@@ -284,6 +284,7 @@ action:
                     and wait.trigger.payload_json.after.camera == camera_id
                     and wait.trigger.payload_json.after.id == current_event_id
                     and wait.trigger.payload_json.after.id is defined
+                    and wait.trigger.payload_json.after.end_time is defined
                   }}
                 {% endif %}
 
