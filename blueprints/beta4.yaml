@@ -109,13 +109,14 @@ variables:
   notified_objects: []
 
   zone_config: >-
-    {% set raw = zone_settings | default('{}') %}
     {% set cfg = {} %}
-    {% for zone, seconds in raw.items() %}
-      {% if seconds is number and seconds >= 0 %}
-        {% set cfg = cfg | combine({ zone: {'presence_time': (seconds|int)} }) %}
-      {% endif %}
-    {% endfor %}
+    {% if zone_settings is mapping %}
+      {% for zone, seconds in zone_settings.items() %}
+        {% if seconds is number and seconds >= 0 %}
+          {% set cfg = cfg | combine({ zone: {'presence_time': (seconds|int)} }) %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
     {{ cfg }}
 
   # Basic event info
