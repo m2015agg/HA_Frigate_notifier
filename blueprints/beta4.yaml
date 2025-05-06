@@ -138,11 +138,11 @@ action:
               {% set thresholds = [] %}
               {% for zone in current_zones %}
                 {% if zone == 'garage' %}
-                  {% set _ = thresholds.append(5) %}
+                  {% set thresholds = thresholds + [5] %}
                 {% elif zone == 'street' %}
-                  {% set _ = thresholds.append(8) %}
+                  {% set thresholds = thresholds + [8] %}
                 {% elif zone == 'yard' %}
-                  {% set _ = thresholds.append(1) %}
+                  {% set thresholds = thresholds + [1] %}
                 {% endif %}
               {% endfor %}
               {{ (thresholds|min) if thresholds else presence_time }}
@@ -249,11 +249,13 @@ action:
         # Stop if we timed out
         - condition: template
           value_template: "{{ wait.trigger is not none }}"
+
       until: >-
         {% if wait.trigger is none %}
-          true
+        true
         {% else %}
           wait.trigger.payload_json.type == 'end'
           and (wait.trigger.payload_json.after.data.zones | length) > 0
         {% endif %}
+
 
