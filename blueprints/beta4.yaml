@@ -87,7 +87,6 @@ variables:
   notify_device: !input notify_device
   presence_time: !input presence_time
   base_url: !input base_url
-  zone_settings: !input zone_settings
   timeout: !input timeout
   enable_homekit: !input enable_homekit
   critical_alert: !input critical_alert
@@ -113,8 +112,6 @@ action:
         Camera: {{ camera_id }}
         Camera Entity: {{ camera_entity }}
         Watched Cameras: {{ cameras }}
-        Zone Settings: {{ zone_settings }}
-        Zone Config: {{ zone_config }}
         Current Zones: {{ current_zones }}
         Duration: {{ duration }}
         Presence Time: {{ presence_time }}
@@ -146,11 +143,6 @@ action:
                   {% set _ = thresholds.append(8) %}
                 {% elif zone == 'yard' %}
                   {% set _ = thresholds.append(1) %}
-                {% elif zone in zone_config %}
-                  {% set t = zone_config[zone].presence_time|int %}
-                  {% if t > 0 %}
-                    {% set _ = thresholds.append(t) %}
-                  {% endif %}
                 {% endif %}
               {% endfor %}
               {{ (thresholds|min) if thresholds else presence_time }}
