@@ -109,7 +109,7 @@ variables:
   notified_objects: []
 
   zone_config: >-
-    {% set raw = (zone_settings | default('{}')) | from_yaml %}
+    {% set raw = zone_settings | default('{}') %}
     {% set cfg = {} %}
     {% for zone, seconds in raw.items() %}
       {% if seconds is number and seconds >= 0 %}
