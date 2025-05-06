@@ -110,11 +110,12 @@ variables:
 
   zone_config: >-
     {% set cfg = {} %}
-    {% for line in (zone_settings | default('')) .splitlines() %}
+    {% set raw = zone_settings or '' %}
+    {% for line in raw.splitlines() %}
       {% if ':' in line %}
-        {% set parts = line.split(':',1) %}
+        {% set parts = line.split(':', 1) %}
         {% set zone = parts[0].strip() %}
-        {% set secs = parts[1].strip()|int(default=-1) %}
+        {% set secs = parts[1].strip()|int(-1) %}
         {% if secs >= 0 %}
           {% set cfg = cfg | combine({ (zone): {'presence_time': secs} }) %}
         {% endif %}
