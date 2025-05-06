@@ -56,7 +56,7 @@ blueprint:
           garage: 3
       default: {}
       selector:
-        object: {}
+        yaml: {}
 
     timeout:
       name: Update Timeout (minutes)
