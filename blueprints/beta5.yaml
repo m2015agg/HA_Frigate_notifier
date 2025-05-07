@@ -134,6 +134,8 @@ action:
                 Expected: {{ review_full_event_id }}
                 Matches: {{ e.id == review_full_event_id }}
                 Full message structure: {{ trigger.payload_json | to_json }}
+                After object structure: {{ e | to_json }}
+                Available attributes: {{ e.keys() | list }}
               {% else %}
                 No event received before timeout
               {% endif %}
@@ -143,19 +145,38 @@ action:
             - conditions:
                 - condition: template
                   value_template: >
-                    {% set e = trigger.payload_json.after %}
-                    {{ not initial_notification_sent and e.pending_loitering and e.entered_zones and e.has_clip and e.has_snapshot }}
+                    {% if trigger is not none %}
+                      {% set e = trigger.payload_json.after %}
+                      {% set has_pending = e.pending_loitering is defined and e.pending_loitering %}
+                      {% set has_zones = e.entered_zones is defined and e.entered_zones|length > 0 %}
+                      {% set has_clip = e.has_clip is defined and e.has_clip %}
+                      {% set has_snapshot = e.has_snapshot is defined and e.has_snapshot %}
+                      {% set is_active = e.active is defined and e.active %}
+                      {% set has_severity = e.max_severity is defined and e.max_severity == 'alert' %}
+                      {{ not initial_notification_sent and has_pending and has_zones and has_clip and has_snapshot and is_active and has_severity }}
+                    {% else %}
+                      false
+                    {% endif %}
               sequence:
                 - service: logbook.log
                   data:
                     name: "Frigate Debug - Sending Notification"
                     message: >
                       {% set e = trigger.payload_json.after %}
+                      {% set has_pending = e.pending_loitering is defined and e.pending_loitering %}
+                      {% set has_zones = e.entered_zones is defined and e.entered_zones|length > 0 %}
+                      {% set has_clip = e.has_clip is defined and e.has_clip %}
+                      {% set has_snapshot = e.has_snapshot is defined and e.has_snapshot %}
+                      {% set is_active = e.active is defined and e.active %}
+                      {% set has_severity = e.max_severity is defined and e.max_severity == 'alert' %}
                       Event {{ review_full_event_id }} ({{ review_camera_id }})
-                      Pending Loitering: {{ e.pending_loitering }}
-                      Entered Zones: {{ e.entered_zones }}
-                      Has Clip: {{ e.has_clip }}
-                      Has Snapshot: {{ e.has_snapshot }}
+                      Object: {{ e.label }} ({{ e.sub_label }})
+                      Pending Loitering: {{ has_pending }}
+                      Entered Zones: {{ has_zones }} ({{ e.entered_zones|join(', ') }})
+                      Has Clip: {{ has_clip }}
+                      Has Snapshot: {{ has_snapshot }}
+                      Is Active: {{ is_active }}
+                      Has Alert Severity: {{ has_severity }}
                       Notification sent: {{ initial_notification_sent }}
 
                 - device_id: !input notify_device
