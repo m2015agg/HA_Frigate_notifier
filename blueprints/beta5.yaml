@@ -124,19 +124,19 @@ action:
         # Re-evaluate current state
         - variables:
             event_full_event_id: >-
-              {{ wait.trigger.payload_json.after.id }}
+              {{ trigger.payload_json.after.id }}
             event_camera_id: >-
-              {{ wait.trigger.payload_json.after.camera }}
+              {{ trigger.payload_json.after.camera }}
             event_entered_zones: >-
-              {{ wait.trigger.payload_json.after.entered_zones }}
+              {{ trigger.payload_json.after.entered_zones }}
             event_pending_loitering: >-
-              {{ wait.trigger.payload_json.after.pending_loitering }}
+              {{ trigger.payload_json.after.pending_loitering }}
             event_has_clip: >-
-              {{ wait.trigger.payload_json.after.has_clip }}
+              {{ trigger.payload_json.after.has_clip }}
             event_has_snapshot: >-
-              {{ wait.trigger.payload_json.after.has_snapshot }}
+              {{ trigger.payload_json.after.has_snapshot }}
             current_should_notify: >-
-              {% set e = wait.trigger.payload_json.after %}
+              {% set e = trigger.payload_json.after %}
               {{ e.pending_loitering and e.entered_zones and e.has_clip and e.has_snapshot }}
 
         - service: logbook.log
@@ -268,12 +268,12 @@ action:
 
         # Stop if we timed out
         - condition: template
-          value_template: "{{ wait.trigger is not none }}"
+          value_template: "{{ trigger is not none }}"
       until: >-
-        {% if wait.trigger is none %}
+        {% if trigger is none %}
           true
         {% elif initial_notification_sent %}
           true
         {% else %}
-          {{ wait.trigger.payload_json.type == 'end' }}
+          {{ trigger.payload_json.type == 'end' }}
         {% endif %}
