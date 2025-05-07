@@ -243,14 +243,16 @@ action:
                and e.has_snapshot }}
 
         # Pull the real event fields into our event_* vars
-
         - variables:
-            event_full_event_id:    "{{ wait.trigger.payload_json.after.id }}"
-            event_camera_id:        "{{ wait.trigger.payload_json.after.camera }}"
-            event_entered_zones:    "{{ wait.trigger.payload_json.after.entered_zones }}"
-            event_pending_loitering: "{{ wait.trigger.payload_json.after.pending_loitering }}"
-            event_has_clip:          "{{ wait.trigger.payload_json.after.has_clip }}"
-            event_has_snapshot:      "{{ wait.trigger.payload_json.after.has_snapshot }}"
+            event_full_event_id: "{{ trigger.payload_json.after.id }}"
+            event_camera_id: "{{ trigger.payload_json.after.camera }}"
+            event_entered_zones: "{{ trigger.payload_json.after.entered_zones }}"
+            event_pending_loitering: "{{ trigger.payload_json.after.pending_loitering }}"
+            event_has_clip: "{{ trigger.payload_json.after.has_clip }}"
+            event_has_snapshot: "{{ trigger.payload_json.after.has_snapshot }}"
+            current_should_notify: >-
+              {% set e = trigger.payload_json.after %}
+              {{ e.pending_loitering and e.entered_zones and e.has_clip and e.has_snapshot }}
 
         # (Optional) log what you just received
         - service: logbook.log
