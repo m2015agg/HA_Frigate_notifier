@@ -128,13 +128,52 @@ action:
         # Update variables with latest event data
         - variables:
             e: "{{ trigger.payload_json.after }}"
-            has_pending: "{{ e.pending_loitering is defined and e.pending_loitering }}"
-            has_zones: "{{ e.entered_zones is defined and e.entered_zones|length > 0 }}"
-            has_clip: "{{ e.has_clip is defined and e.has_clip }}"
-            has_snapshot: "{{ e.has_snapshot is defined and e.has_snapshot }}"
-            is_active: "{{ e.active is defined and e.active }}"
-            has_severity: "{{ e.max_severity is defined and e.max_severity == 'alert' }}"
-            should_notify: "{{ not initial_notification_sent and has_severity and (has_zones or has_pending) }}"
+            has_pending: >-
+              {% if trigger is not none and trigger.payload_json.after is defined %}
+                {{ trigger.payload_json.after.pending_loitering is defined and trigger.payload_json.after.pending_loitering }}
+              {% else %}
+                false
+              {% endif %}
+            has_zones: >-
+              {% if trigger is not none and trigger.payload_json.after is defined %}
+                {{ trigger.payload_json.after.entered_zones is defined and trigger.payload_json.after.entered_zones|length > 0 }}
+              {% else %}
+                false
+              {% endif %}
+            has_clip: >-
+              {% if trigger is not none and trigger.payload_json.after is defined %}
+                {{ trigger.payload_json.after.has_clip is defined and trigger.payload_json.after.has_clip }}
+              {% else %}
+                false
+              {% endif %}
+            has_snapshot: >-
+              {% if trigger is not none and trigger.payload_json.after is defined %}
+                {{ trigger.payload_json.after.has_snapshot is defined and trigger.payload_json.after.has_snapshot }}
+              {% else %}
+                false
+              {% endif %}
+            is_active: >-
+              {% if trigger is not none and trigger.payload_json.after is defined %}
+                {{ trigger.payload_json.after.active is defined and trigger.payload_json.after.active }}
+              {% else %}
+                false
+              {% endif %}
+            has_severity: >-
+              {% if trigger is not none and trigger.payload_json.after is defined %}
+                {{ trigger.payload_json.after.max_severity is defined and trigger.payload_json.after.max_severity == 'alert' }}
+              {% else %}
+                false
+              {% endif %}
+            should_notify: >-
+              {% if trigger is not none and trigger.payload_json.after is defined %}
+                {{ not initial_notification_sent and 
+                   trigger.payload_json.after.max_severity is defined and 
+                   trigger.payload_json.after.max_severity == 'alert' and 
+                   ((trigger.payload_json.after.entered_zones is defined and trigger.payload_json.after.entered_zones|length > 0) or 
+                    (trigger.payload_json.after.pending_loitering is defined and trigger.payload_json.after.pending_loitering)) }}
+              {% else %}
+                false
+              {% endif %}
 
         # Log what we received
         - service: logbook.log
@@ -142,9 +181,10 @@ action:
             name: "Frigate Debug - Event Received"
             message: >
               {% if trigger is not none %}
-                Received event: {{ e.id }}
+                Received event: {{ trigger.payload_json.after.id }}
                 Expected: {{ review_full_event_id }}
-                Matches: {{ e.id == review_full_event_id }}
+                Matches: {{ trigger.payload_json.after.id == review_full_event_id }}
+                Raw payload: {{ trigger.payload_json | to_json }}
                 Conditions:
                 - Initial notification not sent: {{ not initial_notification_sent }}
                 - Has severity: {{ has_severity }}
