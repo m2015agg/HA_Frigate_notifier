@@ -228,17 +228,19 @@ action:
         - wait_for_trigger:
             - platform: mqtt
               topic: "{{ mqtt_event_topic }}"
-              value_template: >-
-                {% set e = wait.trigger.payload_json.after %}
-                {{ e.id == review_full_event_id
-                   and e.pending_loitering
-                   and (e.entered_zones | length) > 0
-                   and e.has_clip
-                   and e.has_snapshot
-                }}
+              value_template: "{{ trigger.payload_json.after.id == review_full_event_id }}"
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
+
+        # After we get a matching event, then check the other conditions
+        - condition: template
+          value_template: >-
+            {% set e = trigger.payload_json.after %}
+            {{ e.pending_loitering
+               and (e.entered_zones | length) > 0
+               and e.has_clip
+               and e.has_snapshot }}
 
         # Pull the real event fields into our event_* vars
 
