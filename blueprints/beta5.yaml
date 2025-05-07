@@ -35,9 +35,15 @@ blueprint:
           max: 3600
           unit_of_measurement: seconds
 
-    mqtt_topic:
-      name: MQTT Topic
+    mqtt_review_topic:
+      name: Review Topic
       default: frigate/reviews
+      selector:
+        text: {}
+
+    mqtt_event_topic:
+      name: Event Topic
+      default: frigate/events
       selector:
         text: {}
 
@@ -68,21 +74,24 @@ blueprint:
       selector:
         boolean: {}
 
+# Run automation in parallel mode
 mode: parallel
 
+# Trigger on MQTT updates from Frigate
+# This trigger listens to frigate/reviews for new events
 trigger:
   - platform: mqtt
-    topic: !input mqtt_topic
-    id: frigate-new
-    value_template: >-
-      {% set t = trigger.payload_json.type|default('') %}
-      {% set cam = 'camera.' ~ (trigger.payload_json.after.camera|lower) %}
-      {{ t in ['new', 'update', 'end'] and cam in (cameras|map('lower')|list) }}
+    topic: !input mqtt_review_topic
+    value_template: >
+      {{ trigger.payload_json.type == 'new' }}
 
+# Variables used in the automation
 variables:
+  # Extract data from the MQTT payload
   payload: "{{ trigger.payload_json }}"
   full_event_id: "{{ payload.after.id }}"
   event_id: "{{ full_event_id[-5:] }}"
+  # Get input variables
   cameras: !input cameras
   notify_device: !input notify_device
   presence_time: !input presence_time
@@ -90,7 +99,8 @@ variables:
   timeout: !input timeout
   enable_homekit: !input enable_homekit
   critical_alert: !input critical_alert
-  mqtt_topic: !input mqtt_topic
+  # Use frigate/events for updates
+  mqtt_event_topic: !input mqtt_event_topic
   initial_notification_sent: false
   notified_objects: []
 
@@ -238,12 +248,13 @@ action:
                               input_boolean.frigate_{{ camera_id|lower }}_alert
 
         # Wait for the next update or final end
+        # This listens to frigate/events for updates
         - wait_for_trigger:
-            - trigger: mqtt
-              topic: "{{ mqtt_topic }}"
+            - platform: mqtt
+              topic: "{{ mqtt_event_topic }}"
               value_template: >-
                 {{ trigger.payload_json.after.id == full_event_id
-                  and trigger.payload_json.type in ['update','end'] }}
+                   and trigger.payload_json.type in ['update','end'] }}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
@@ -268,6 +279,8 @@ action:
           value_template: "{{ wait.trigger is not none }}"
       until: >-
         {% if wait.trigger is none %}
+          true
+        {% elif initial_notification_sent %}
           true
         {% else %}
           {{ wait.trigger.payload_json.type == 'end' }}
