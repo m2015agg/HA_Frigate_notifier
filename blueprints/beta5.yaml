@@ -243,7 +243,7 @@ action:
             event_full_event_id:    "{{ wait.trigger.payload_json.after.id }}"
             event_camera_id:        "{{ wait.trigger.payload_json.after.camera }}"
             event_entered_zones:    "{{ wait.trigger.payload_json.after.entered_zones }}"
-            event_pending_loitering:"{{ wait.trigger.payload_json.after.pending_loitering }}"
+            event_pending_loitering: "{{ wait.trigger.payload_json.after.pending_loitering }}"
             event_has_clip:         "{{ wait.trigger.payload_json.after.has_clip }}"
             event_has_snapshot:     "{{ wait.trigger.payload_json.after.has_snapshot }}"
 
