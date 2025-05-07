@@ -223,17 +223,19 @@ action:
                             entity_id: >
                               input_boolean.frigate_{{ event_camera_id|lower }}_alert
 
-        # Wait for the matching frigate/events message
+        # Wait for the matching frigate/events message (only fire when our review_id shows up
+        # with entered_zones, pending_loitering, has_clip and has_snapshot all truthy)
         - wait_for_trigger:
             - platform: mqtt
               topic: "{{ mqtt_event_topic }}"
               value_template: >-
                 {% set e = wait.trigger.payload_json.after %}
                 {{ e.id == review_full_event_id
-                  and e.pending_loitering
-                  and (e.entered_zones|length) > 0
-                  and e.has_clip
-                  and e.has_snapshot }}
+                   and e.pending_loitering
+                   and (e.entered_zones | length) > 0
+                   and e.has_clip
+                   and e.has_snapshot
+                }}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
