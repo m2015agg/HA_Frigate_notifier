@@ -85,7 +85,6 @@ variables:
   # Get input variables
   cameras: !input cameras
   notify_device: !input notify_device
-  presence_time: !input presence_time
   base_url: !input base_url
   timeout: !input timeout
   enable_homekit: !input enable_homekit
