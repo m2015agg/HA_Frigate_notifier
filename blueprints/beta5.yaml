@@ -90,8 +90,8 @@ variables:
   # Extract data from the MQTT payload frigate/reviews
   review_payload: "{{ trigger.payload_json }}"
   review_full_event_id: "{{ review_payload.after.id }}"
-  review_camera_id: "{{ review_payload.after.camera }}"  
-  
+  review_camera_id: "{{ review_payload.after.camera }}"
+
   # Get input variables
   cameras: !input cameras
   notify_device: !input notify_device
@@ -104,12 +104,12 @@ variables:
   initial_notification_sent: false
 
   # Event topic evaluation variables frigate/events
-  event_full_event_id:    "{{ review_full_event_id }}"
-  event_camera_id:        "{{ review_camera_id }}"
-  event_entered_zones:    []
+  event_full_event_id: "{{ review_full_event_id }}"
+  event_camera_id: "{{ review_camera_id }}"
+  event_entered_zones: []
   event_pending_loitering: false
-  event_has_clip:         false
-  event_has_snapshot:     false
+  event_has_clip: false
+  event_has_snapshot: false
 
 action:
   - service: logbook.log
@@ -251,6 +251,7 @@ action:
                 Received event: {{ trigger.payload_json.after.id }}
                 Expected: {{ review_full_event_id }}
                 Matches: {{ trigger.payload_json.after.id == review_full_event_id }}
+                Full message structure: {{ trigger.payload_json | to_json }}
               {% else %}
                 No event received before timeout
               {% endif %}
@@ -259,10 +260,11 @@ action:
         - condition: template
           value_template: >-
             {% set e = trigger.payload_json.after %}
-            {{ e.pending_loitering
-               and (e.entered_zones | length) > 0
-               and e.has_clip
-               and e.has_snapshot }}
+            {% set has_required_fields = e is defined and e.entered_zones is defined and e.pending_loitering is defined and e.has_clip is defined and e.has_snapshot is defined %}
+            {% if not has_required_fields %}
+              {{ log('Missing required fields in event: ' ~ e | to_json) }}
+            {% endif %}
+            {{ has_required_fields and e.pending_loitering and (e.entered_zones | length) > 0 and e.has_clip and e.has_snapshot }}
 
         # Pull the real event fields into our event_* vars
         - variables:
