@@ -25,16 +25,6 @@ blueprint:
           filter:
             integration: mobile_app
 
-    presence_time:
-      name: Presence Time (seconds)
-      description: How long an object must be present in a zone before triggering a notification
-      default: 15
-      selector:
-        number:
-          min: 0
-          max: 3600
-          unit_of_measurement: seconds
-
     mqtt_review_topic:
       name: Review Topic
       default: frigate/reviews
@@ -103,127 +93,17 @@ variables:
   mqtt_event_topic: !input mqtt_event_topic
   initial_notification_sent: false
 
-  # Event topic evaluation variables frigate/events
-  event_full_event_id: "{{ review_full_event_id }}"
-  event_camera_id: "{{ review_camera_id }}"
-  event_entered_zones: []
-  event_pending_loitering: false
-  event_has_clip: false
-  event_has_snapshot: false
-
 action:
   - service: logbook.log
     data:
-      name: "Frigate Debug - Initial State"
+      name: "Frigate Debug - Initial Review Event"
       message: >
-        Event: {{ review_full_event_id }}
+        Review Event: {{ review_full_event_id }}
         Camera: {{ review_camera_id }}
 
   - repeat:
       sequence:
-        # Re-evaluate current state
-        - variables:
-            event_full_event_id: >-
-              {{ trigger.payload_json.after.id }}
-            event_camera_id: >-
-              {{ trigger.payload_json.after.camera }}
-            event_entered_zones: >-
-              {{ trigger.payload_json.after.entered_zones }}
-            event_pending_loitering: >-
-              {{ trigger.payload_json.after.pending_loitering }}
-            event_has_clip: >-
-              {{ trigger.payload_json.after.has_clip }}
-            event_has_snapshot: >-
-              {{ trigger.payload_json.after.has_snapshot }}
-            current_should_notify: >-
-              {% set e = trigger.payload_json.after %}
-              {{ e.pending_loitering and e.entered_zones and e.has_clip and e.has_snapshot }}
-
-        - service: logbook.log
-          data:
-            name: "Frigate Debug - Loop State"
-            message: >
-              Event: {{ event_full_event_id }}
-              Camera: {{ event_camera_id }}
-              Should Notify: {{ current_should_notify }}
-              Initial Notification Sent: {{ initial_notification_sent }}
-              Event ID: {{ event_full_event_id }}
-              Event Camera: {{ event_camera_id }}
-              Pending Loitering: {{ event_pending_loitering }}
-              Entered Zones: {{ event_entered_zones }}
-              Has Clip: {{ event_has_clip }}
-              Has Snapshot: {{ event_has_snapshot }}
-
-        # Send notification if conditions are met
-        - choose:
-            - conditions:
-                - condition: template
-                  value_template: >
-                    {{ (not initial_notification_sent and 
-                        event_pending_loitering and 
-                        event_entered_zones and 
-                        event_has_clip and 
-                        event_has_snapshot) }}
-              sequence:
-                - service: logbook.log
-                  data:
-                    name: "Frigate Debug - Sending Notification"
-                    message: >-
-                      Event {{ event_full_event_id }} ({{ event_camera_id }})
-                      Pending Loitering: {{ event_pending_loitering }}
-                      Entered Zones: {{ event_entered_zones }}
-                      Has Clip: {{ event_has_clip }}
-                      Has Snapshot: {{ event_has_snapshot }}
-                      Notification sent: {{ initial_notification_sent }}
-                - device_id: !input notify_device
-                  domain: mobile_app
-                  type: notify
-                  message: >-
-                    {% if not initial_notification_sent %}
-                      A {{ payload.after.data.objects | sort | join(", ") | title }} was detected on {{ event_camera_id }}.
-                    {% else %}
-                      Additional object(s) detected: {{ new_objects | join(", ") | title }} on {{ event_camera_id }}.
-                    {% endif %}
-                  data:
-                    tag: "{{ event_full_event_id }}"
-                    title: "Frigate Detection"
-                    image: "{{ base_url }}/api/frigate/notifications/{{ payload.after.data.detections[0] }}/thumbnail.jpg"
-                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ event_full_event_id }}/clip.mp4"
-                    tap_action:
-                      action: "URI"
-                      uri: "{{ base_url }}/api/frigate/notifications/{{ event_full_event_id }}/clip.mp4"
-                    importance: "{{ 'low' if initial_notification_sent else 'high' }}"
-                    priority: "{{ 'low' if initial_notification_sent else 'high' }}"
-                    sound: "{{ 'none' if initial_notification_sent else 'default' }}"
-                    critical: "{{ critical_alert }}"
-                    when: "{{ payload.after.start_time|int }}"
-                    entity_id: "camera.{{ event_camera_id | replace('-','_') | lower }}"
-                    actions:
-                      - label: "Open Frigate Dashboard"
-                        title: "Open Frigate Dashboard"
-                        action: "URI"
-                        uri: "{{ base_url }}/api/hassio_ingress/frigate"
-                      - label: "View Clip"
-                        title: "View Clip"
-                        action: "URI"
-                        uri: "{{ base_url }}/api/frigate/notifications/{{ event_full_event_id }}/clip.mp4"
-                - variables:
-                    initial_notification_sent: true
-                    notified_objects: "{{ notified_objects + new_objects }}"
-                - choose:
-                    - conditions: "{{ enable_homekit }}"
-                      sequence:
-                        - service: input_boolean.turn_on
-                          target:
-                            entity_id: >
-                              input_boolean.frigate_{{ event_camera_id|lower }}_alert
-                        - delay: 5
-                        - service: input_boolean.turn_off
-                          target:
-                            entity_id: >
-                              input_boolean.frigate_{{ event_camera_id|lower }}_alert
-
-        # Wait for the matching frigate/events message
+        # Wait for matching frigate/events message
         - service: logbook.log
           data:
             name: "Frigate Debug - Waiting for Event"
@@ -242,7 +122,7 @@ action:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
 
-        # Log what we received (or didn't receive)
+        # Log what we received
         - service: logbook.log
           data:
             name: "Frigate Debug - Event Received"
@@ -256,49 +136,78 @@ action:
                 No event received before timeout
               {% endif %}
 
-        # After we get a matching event, then check the other conditions
-        - condition: template
-          value_template: >-
-            {% set e = trigger.payload_json.after %}
-            {% set has_required_fields = e is defined and e.entered_zones is defined and e.pending_loitering is defined and e.has_clip is defined and e.has_snapshot is defined %}
-            {{ has_required_fields and e.pending_loitering and (e.entered_zones | length) > 0 and e.has_clip and e.has_snapshot }}
+        # Check if we should send notification
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: >
+                    {% set e = trigger.payload_json.after %}
+                    {{ (not initial_notification_sent and 
+                        e.pending_loitering and 
+                        e.entered_zones and 
+                        e.has_clip and 
+                        e.has_snapshot) }}
+              sequence:
+                - service: logbook.log
+                  data:
+                    name: "Frigate Debug - Sending Notification"
+                    message: >
+                      Event {{ review_full_event_id }} ({{ review_camera_id }})
+                      Pending Loitering: {{ trigger.payload_json.after.pending_loitering }}
+                      Entered Zones: {{ trigger.payload_json.after.entered_zones }}
+                      Has Clip: {{ trigger.payload_json.after.has_clip }}
+                      Has Snapshot: {{ trigger.payload_json.after.has_snapshot }}
+                      Notification sent: {{ initial_notification_sent }}
 
-        # Log the event structure for debugging
-        - service: logbook.log
-          data:
-            name: "Frigate Debug - Event Structure"
-            message: >-
-              {% set e = trigger.payload_json.after %}
-              Event structure: {{ e | to_json }}
-              Has required fields: {{ e is defined and e.entered_zones is defined and e.pending_loitering is defined and e.has_clip is defined and e.has_snapshot is defined }}
+                - device_id: !input notify_device
+                  domain: mobile_app
+                  type: notify
+                  message: >-
+                    {% if not initial_notification_sent %}
+                      A {{ trigger.payload_json.after.label | title }} was detected on {{ review_camera_id }}.
+                    {% else %}
+                      Additional object(s) detected: {{ new_objects | join(", ") | title }} on {{ review_camera_id }}.
+                    {% endif %}
+                  data:
+                    tag: "{{ review_full_event_id }}"
+                    title: "Frigate Detection"
+                    image: "{{ base_url }}/api/frigate/notifications/{{ trigger.payload_json.after.id }}/thumbnail.jpg"
+                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ review_full_event_id }}/clip.mp4"
+                    tap_action:
+                      action: "URI"
+                      uri: "{{ base_url }}/api/frigate/notifications/{{ review_full_event_id }}/clip.mp4"
+                    importance: "{{ 'low' if initial_notification_sent else 'high' }}"
+                    priority: "{{ 'low' if initial_notification_sent else 'high' }}"
+                    sound: "{{ 'none' if initial_notification_sent else 'default' }}"
+                    critical: "{{ critical_alert }}"
+                    when: "{{ trigger.payload_json.after.start_time|int }}"
+                    entity_id: "camera.{{ review_camera_id | replace('-','_') | lower }}"
+                    actions:
+                      - label: "Open Frigate Dashboard"
+                        title: "Open Frigate Dashboard"
+                        action: "URI"
+                        uri: "{{ base_url }}/api/hassio_ingress/frigate"
+                      - label: "View Clip"
+                        title: "View Clip"
+                        action: "URI"
+                        uri: "{{ base_url }}/api/frigate/notifications/{{ review_full_event_id }}/clip.mp4"
 
-        # Pull the real event fields into our event_* vars
-        - variables:
-            event_full_event_id: "{{ trigger.payload_json.after.id }}"
-            event_camera_id: "{{ trigger.payload_json.after.camera }}"
-            event_entered_zones: "{{ trigger.payload_json.after.entered_zones }}"
-            event_pending_loitering: "{{ trigger.payload_json.after.pending_loitering }}"
-            event_has_clip: "{{ trigger.payload_json.after.has_clip }}"
-            event_has_snapshot: "{{ trigger.payload_json.after.has_snapshot }}"
-            current_should_notify: >-
-              {% set e = trigger.payload_json.after %}
-              {{ e.pending_loitering and e.entered_zones and e.has_clip and e.has_snapshot }}
+                - variables:
+                    initial_notification_sent: true
 
-        # (Optional) log what you just received
-        - service: logbook.log
-          data:
-            name: "Frigate Debug – Event Vars"
-            message: >
-              Event ID: {{ event_full_event_id }}
-              Camera:  {{ event_camera_id }}
-              Entered Zones: {{ event_entered_zones }}
-              Pending Loitering: {{ event_pending_loitering }}
-              Has Clip: {{ event_has_clip }}
-              Has Snapshot: {{ event_has_snapshot }}
+                - choose:
+                    - conditions: "{{ enable_homekit }}"
+                      sequence:
+                        - service: input_boolean.turn_on
+                          target:
+                            entity_id: >
+                              input_boolean.frigate_{{ review_camera_id|lower }}_alert
+                        - delay: 5
+                        - service: input_boolean.turn_off
+                          target:
+                            entity_id: >
+                              input_boolean.frigate_{{ review_camera_id|lower }}_alert
 
-        # Stop if we timed out
-        - condition: template
-          value_template: "{{ trigger is not none }}"
       until: >-
         {% if trigger is none %}
           true
