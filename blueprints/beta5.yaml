@@ -1,6 +1,6 @@
 blueprint:
   name: Frigate Presence Detection Notifications Hardcoded
-  source_url: "https://raw.githubusercontent.com/m2015agg/HA_Frigate_notifier/main/blueprints/beta5.yaml"
+  source_url: "https://github.com/m2015agg/HA_Frigate_notifier/blob/main/blueprints/beta5.yaml"
   description: >
     Spawn a single loop on each new Frigate event for watched cameras.
     Only notify when an object is detected in a zone and remains there for the specified presence time.
@@ -125,19 +125,35 @@ action:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
 
+        # Update variables with latest event data
+        - variables:
+            e: "{{ trigger.payload_json.after }}"
+            has_pending: "{{ e.pending_loitering is defined and e.pending_loitering }}"
+            has_zones: "{{ e.entered_zones is defined and e.entered_zones|length > 0 }}"
+            has_clip: "{{ e.has_clip is defined and e.has_clip }}"
+            has_snapshot: "{{ e.has_snapshot is defined and e.has_snapshot }}"
+            is_active: "{{ e.active is defined and e.active }}"
+            has_severity: "{{ e.max_severity is defined and e.max_severity == 'alert' }}"
+            should_notify: "{{ not initial_notification_sent and has_severity and (has_zones or has_pending) }}"
+
         # Log what we received
         - service: logbook.log
           data:
             name: "Frigate Debug - Event Received"
             message: >
               {% if trigger is not none %}
-                {% set e = trigger.payload_json.after %}
                 Received event: {{ e.id }}
                 Expected: {{ review_full_event_id }}
                 Matches: {{ e.id == review_full_event_id }}
-                Full message structure: {{ trigger.payload_json | to_json }}
-                After object structure: {{ e | to_json }}
-                Available attributes: {{ e.keys() | list }}
+                Conditions:
+                - Initial notification not sent: {{ not initial_notification_sent }}
+                - Has severity: {{ has_severity }}
+                - Has zones: {{ has_zones }}
+                - Has pending: {{ has_pending }}
+                - Has clip: {{ has_clip }}
+                - Has snapshot: {{ has_snapshot }}
+                - Is active: {{ is_active }}
+                Final decision: {{ should_notify }}
               {% else %}
                 No event received before timeout
               {% endif %}
@@ -146,23 +162,11 @@ action:
         - choose:
             - conditions:
                 - condition: template
-                  value_template: >
-                    {% if trigger is not none %}
-                      {% set e = trigger.payload_json.after %}
-                      {% set has_pending = e.pending_loitering is defined and e.pending_loitering %}
-                      {% set has_zones = e.entered_zones is defined and e.entered_zones|length > 0 %}
-                      {% set has_clip = e.has_clip is defined and e.has_clip %}
-                      {% set has_snapshot = e.has_snapshot is defined and e.has_snapshot %}
-                      {% set is_active = e.active is defined and e.active %}
-                      {% set has_severity = e.max_severity is defined and e.max_severity == 'alert' %}
-                      {{ not initial_notification_sent and has_pending and has_zones and has_clip and has_snapshot and is_active and has_severity }}
-                    {% else %}
-                      false
-                    {% endif %}
+                  value_template: "{{ should_notify }}"
               sequence:
                 - service: logbook.log
                   data:
-                    name: "Frigate Debug - Sending Notification"
+                    name: "Frigate Debug - Condition Check"
                     message: >
                       {% set e = trigger.payload_json.after %}
                       {% set has_pending = e.pending_loitering is defined and e.pending_loitering %}
@@ -173,13 +177,15 @@ action:
                       {% set has_severity = e.max_severity is defined and e.max_severity == 'alert' %}
                       Event {{ review_full_event_id }} ({{ review_camera_id }})
                       Object: {{ e.label }} ({{ e.sub_label }})
-                      Pending Loitering: {{ has_pending }}
-                      Entered Zones: {{ has_zones }} ({{ e.entered_zones|join(', ') }})
-                      Has Clip: {{ has_clip }}
-                      Has Snapshot: {{ has_snapshot }}
-                      Is Active: {{ is_active }}
-                      Has Alert Severity: {{ has_severity }}
-                      Notification sent: {{ initial_notification_sent }}
+                      Conditions:
+                      - Initial notification not sent: {{ not initial_notification_sent }}
+                      - Has severity: {{ has_severity }}
+                      - Has zones: {{ has_zones }}
+                      - Has pending: {{ has_pending }}
+                      - Has clip: {{ has_clip }}
+                      - Has snapshot: {{ has_snapshot }}
+                      - Is active: {{ is_active }}
+                      Final decision: {{ not initial_notification_sent and has_severity and (has_zones or has_pending) }}
 
                 - device_id: !input notify_device
                   domain: mobile_app
