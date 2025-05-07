@@ -92,6 +92,9 @@ variables:
   mqtt_event_topic: !input mqtt_event_topic
   initial_notification_sent: false
 
+  # Event data from frigate/events
+  e: "{{ trigger.payload_json.after }}"
+
 action:
   - service: logbook.log
     data:
