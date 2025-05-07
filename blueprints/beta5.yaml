@@ -152,6 +152,8 @@ action:
               {{ payload.after.data.objects if payload.after.data.objects is defined else [] }}
             new_objects: >
               {{ current_objects | reject('in', notified_objects) | list }}
+            notified_objects: >
+              {{ notified_objects + new_objects if new_objects else notified_objects }}
 
         - service: logbook.log
           data:
