@@ -246,7 +246,7 @@ action:
         - service: logbook.log
           data:
             name: "Frigate Debug - Event Received"
-            message: >-
+            message: >
               {% if trigger is not none %}
                 Received event: {{ trigger.payload_json.after.id }}
                 Expected: {{ review_full_event_id }}
@@ -261,10 +261,16 @@ action:
           value_template: >-
             {% set e = trigger.payload_json.after %}
             {% set has_required_fields = e is defined and e.entered_zones is defined and e.pending_loitering is defined and e.has_clip is defined and e.has_snapshot is defined %}
-            {% if not has_required_fields %}
-              {{ log('Missing required fields in event: ' ~ e | to_json) }}
-            {% endif %}
             {{ has_required_fields and e.pending_loitering and (e.entered_zones | length) > 0 and e.has_clip and e.has_snapshot }}
+
+        # Log the event structure for debugging
+        - service: logbook.log
+          data:
+            name: "Frigate Debug - Event Structure"
+            message: >-
+              {% set e = trigger.payload_json.after %}
+              Event structure: {{ e | to_json }}
+              Has required fields: {{ e is defined and e.entered_zones is defined and e.pending_loitering is defined and e.has_clip is defined and e.has_snapshot is defined }}
 
         # Pull the real event fields into our event_* vars
         - variables:
