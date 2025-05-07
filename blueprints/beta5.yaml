@@ -107,7 +107,8 @@ action:
 
   - repeat:
       sequence:
-        # Wait for matching frigate/events message
+
+        # 1) Log that we're waiting for the matching event
         - service: logbook.log
           data:
             name: "Frigate Debug - Waiting for Event"
@@ -115,89 +116,45 @@ action:
               Waiting for event ID: {{ review_full_event_id }}
               On topic: {{ mqtt_event_topic }}
 
+        # 2) Block until we see the frigate/events message with the same ID
         - wait_for_trigger:
             - platform: mqtt
-              topic: "frigate/events"
-              value_template: >
+              topic: "{{ mqtt_event_topic }}"
+              value_template: >-
                 {% set e = trigger.payload_json.after %}
                 {{ e.id == review_full_event_id }}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
 
-        # Update variables with latest event data
+        # 3) Now pull the real event fields into local vars
         - variables:
-            e: "{{ trigger.payload_json.after }}"
-            has_pending: >-
-              {% if trigger is not none and trigger.payload_json.after is defined %}
-                {{ trigger.payload_json.after.pending_loitering is defined and trigger.payload_json.after.pending_loitering }}
-              {% else %}
-                false
-              {% endif %}
-            has_zones: >-
-              {% if trigger is not none and trigger.payload_json.after is defined %}
-                {{ trigger.payload_json.after.entered_zones is defined and trigger.payload_json.after.entered_zones|length > 0 }}
-              {% else %}
-                false
-              {% endif %}
-            has_clip: >-
-              {% if trigger is not none and trigger.payload_json.after is defined %}
-                {{ trigger.payload_json.after.has_clip is defined and trigger.payload_json.after.has_clip }}
-              {% else %}
-                false
-              {% endif %}
-            has_snapshot: >-
-              {% if trigger is not none and trigger.payload_json.after is defined %}
-                {{ trigger.payload_json.after.has_snapshot is defined and trigger.payload_json.after.has_snapshot }}
-              {% else %}
-                false
-              {% endif %}
-            is_active: >-
-              {% if trigger is not none and trigger.payload_json.after is defined %}
-                {{ trigger.payload_json.after.active is defined and trigger.payload_json.after.active }}
-              {% else %}
-                false
-              {% endif %}
-            has_severity: >-
-              {% if trigger is not none and trigger.payload_json.after is defined %}
-                {{ trigger.payload_json.after.max_severity is defined and trigger.payload_json.after.max_severity == 'alert' }}
-              {% else %}
-                false
-              {% endif %}
+            e: "{{ wait.trigger.payload_json.after }}"
+            has_pending: "{{ e.pending_loitering | default(false) }}"
+            has_zones: "{{ (e.entered_zones | default([])) | length > 0 }}"
+            has_clip: "{{ e.has_clip | default(false) }}"
+            has_snapshot: "{{ e.has_snapshot | default(false) }}"
+            is_active: "{{ e.active | default(false) }}"
+            has_severity: "{{ e.max_severity == 'alert' }}"
             should_notify: >-
-              {% if trigger is not none and trigger.payload_json.after is defined %}
-                {{ not initial_notification_sent and 
-                   trigger.payload_json.after.max_severity is defined and 
-                   trigger.payload_json.after.max_severity == 'alert' and 
-                   ((trigger.payload_json.after.entered_zones is defined and trigger.payload_json.after.entered_zones|length > 0) or 
-                    (trigger.payload_json.after.pending_loitering is defined and trigger.payload_json.after.pending_loitering)) }}
-              {% else %}
-                false
-              {% endif %}
+              {{ (not initial_notification_sent)
+                 and has_severity
+                 and has_clip
+                 and has_snapshot
+                 and (has_zones or has_pending) }}
 
-        # Log what we received
+        # 4) Log what we've got
         - service: logbook.log
           data:
             name: "Frigate Debug - Event Received"
             message: >
-              {% if trigger is not none %}
-                Received event: {{ trigger.payload_json.after.id }}
-                Expected: {{ review_full_event_id }}
-                Matches: {{ trigger.payload_json.after.id == review_full_event_id }}
-                Raw payload: {{ trigger.payload_json | to_json }}
-                Conditions:
-                - Initial notification not sent: {{ not initial_notification_sent }}
-                - Has severity: {{ has_severity }}
-                - Has zones: {{ has_zones }}
-                - Has pending: {{ has_pending }}
-                - Has clip: {{ has_clip }}
-                - Has snapshot: {{ has_snapshot }}
-                - Is active: {{ is_active }}
-                Final decision: {{ should_notify }}
-              {% else %}
-                No event received before timeout
-              {% endif %}
-
+              Event: {{ review_full_event_id }}
+              Pending Loitering: {{ has_pending }}
+              Entered Zones: {{ has_zones }}
+              Has Clip: {{ has_clip }}
+              Has Snapshot: {{ has_snapshot }}
+              Severity OK: {{ has_severity }}
+              Should Notify: {{ should_notify }}
         # Check if we should send notification
         - choose:
             - conditions:
@@ -225,13 +182,12 @@ action:
                       - Has clip: {{ has_clip }}
                       - Has snapshot: {{ has_snapshot }}
                       - Is active: {{ is_active }}
-                      Final decision: {{ not initial_notification_sent and has_severity and (has_zones or has_pending) }}
+                      Final decision: {{ should_notify }}
 
                 - device_id: !input notify_device
                   domain: mobile_app
                   type: notify
                   message: >-
-                    {% set e = trigger.payload_json.after %}
                     {% if not initial_notification_sent %}
                       A {{ e.label | title }} was detected on {{ review_camera_id }}.
                     {% else %}
