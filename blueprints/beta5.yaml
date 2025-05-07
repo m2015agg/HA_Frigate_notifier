@@ -114,10 +114,7 @@ action:
         - wait_for_trigger:
             - platform: mqtt
               topic: "{{ mqtt_event_topic }}"
-              value_template: >-
-                {% set e = trigger.payload_json.after %}
-                {% set matches = e.id == review_full_event_id %}
-                {{ matches }}
+              value_template: "{{ trigger.payload_json.after.id == review_full_event_id }}"
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
@@ -140,13 +137,7 @@ action:
         - choose:
             - conditions:
                 - condition: template
-                  value_template: >
-                    {% set e = trigger.payload_json.after %}
-                    {{ (not initial_notification_sent and 
-                        e.pending_loitering and 
-                        e.entered_zones and 
-                        e.has_clip and 
-                        e.has_snapshot) }}
+                  value_template: "{{ not initial_notification_sent and trigger.payload_json.after.pending_loitering and trigger.payload_json.after.entered_zones and trigger.payload_json.after.has_clip and trigger.payload_json.after.has_snapshot }}"
               sequence:
                 - service: logbook.log
                   data:
