@@ -223,15 +223,37 @@ action:
                             entity_id: >
                               input_boolean.frigate_{{ event_camera_id|lower }}_alert
 
-        # Wait for the matching frigate/events message (only fire when our review_id shows up
-        # with entered_zones, pending_loitering, has_clip and has_snapshot all truthy)
+        # Wait for the matching frigate/events message
+        - service: logbook.log
+          data:
+            name: "Frigate Debug - Waiting for Event"
+            message: >
+              Waiting for event ID: {{ review_full_event_id }}
+              On topic: {{ mqtt_event_topic }}
+
         - wait_for_trigger:
             - platform: mqtt
               topic: "{{ mqtt_event_topic }}"
-              value_template: "{{ trigger.payload_json.after.id == review_full_event_id }}"
+              value_template: >-
+                {% set e = trigger.payload_json.after %}
+                {% set matches = e.id == review_full_event_id %}
+                {{ matches }}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
+
+        # Log what we received (or didn't receive)
+        - service: logbook.log
+          data:
+            name: "Frigate Debug - Event Received"
+            message: >-
+              {% if trigger is not none %}
+                Received event: {{ trigger.payload_json.after.id }}
+                Expected: {{ review_full_event_id }}
+                Matches: {{ trigger.payload_json.after.id == review_full_event_id }}
+              {% else %}
+                No event received before timeout
+              {% endif %}
 
         # After we get a matching event, then check the other conditions
         - condition: template
