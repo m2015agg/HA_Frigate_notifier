@@ -5,7 +5,8 @@ blueprint:
     Spawn a single loop on each new Frigate event for watched cameras.
     Only notify when an object is detected in a zone and remains there for the specified presence time.
     This prevents notifications for quick pass-throughs and only alerts for sustained presence.
-    # Updated: Added robust event checks and detailed debug logging (2024-05-07)
+    # Version 1.0.0 (2024-05-07)
+    # Updated: Added robust event checks and detailed debug logging
 
   domain: automation
   input:
