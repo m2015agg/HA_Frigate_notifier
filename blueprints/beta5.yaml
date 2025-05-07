@@ -121,8 +121,12 @@ action:
             - platform: mqtt
               topic: "{{ mqtt_event_topic }}"
               value_template: >-
-                {% set e = trigger.payload_json.after %}
-                {{ e.id == review_full_event_id }}
+                {% if initial_notification_sent %}
+                  false
+                {% else %}
+                  {% set e = trigger.payload_json.after %}
+                  {{ e.id == review_full_event_id }}
+                {% endif %}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
