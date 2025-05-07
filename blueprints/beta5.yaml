@@ -68,7 +68,7 @@ blueprint:
       selector:
         boolean: {}
 
-mode: single
+mode: parallel
 
 trigger:
   - platform: mqtt
