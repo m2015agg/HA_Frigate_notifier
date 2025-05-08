@@ -14,19 +14,41 @@ blueprint:
     #
     # Note: The following features were tested but rolled back:
     # - Camera validation for snapshots (v1.2.0)
+    #   * Added checks to ensure snapshot camera matches event camera
+    #   * Prevented incorrect snapshots in notifications
+    #   * Rolled back due to potential false negatives with cross-camera events
+    #   * May be reimplemented with single-camera automations
+    #
     # - Event path handling (v1.3.0)
+    #   * Used Frigate's event path for notifications
+    #   * Added fallback to event ID if path missing
+    #   * Rolled back due to path inconsistencies between cameras
+    #   * May be reimplemented with improved path validation
+    #
     # - Modified notification behavior (v1.4.0)
-    # These features may be reimplemented in future versions after further testing.
+    #   * Changed tap action to open thumbnail
+    #   * Added additional quick actions
+    #   * Rolled back due to notification reliability issues
+    #   * May be reimplemented with single-camera focus
+    #
+    # Usage: Create a separate automation for each camera to prevent cross-camera
+    # event interference. This ensures each camera has its own cooldown period
+    # and event handling. The single-camera approach helps avoid issues with:
+    # - Cross-camera event confusion
+    # - Inconsistent severity states
+    # - Different loitering states
+    # - Race conditions between cameras
 
   domain: automation
   input:
-    cameras:
-      name: Cameras
+    camera:
+      name: Camera
+      description: Select a single camera to monitor. Create a separate automation for each camera.
       selector:
         entity:
           integration: frigate
           domain: camera
-          multiple: true
+          multiple: false
 
     notify_device:
       name: Mobile Device
@@ -107,7 +129,7 @@ trigger:
   - platform: mqtt
     topic: !input mqtt_review_topic
     value_template: >
-      {{ trigger.payload_json.type == 'new' }}
+      {{ trigger.payload_json.type == 'new' and trigger.payload_json.after.camera == camera }}
 
 # Variables used in the automation
 variables:
@@ -117,7 +139,7 @@ variables:
   review_camera_id: "{{ review_payload.after.camera }}"
 
   # Get input variables
-  cameras: !input cameras
+  camera: !input camera
   notify_device: !input notify_device
   base_url: !input base_url
   timeout: !input timeout
@@ -138,6 +160,7 @@ action:
       message: >
         Review Event: {{ review_full_event_id }}
         Camera: {{ review_camera_id }}
+        Single Camera Mode: Enabled
 
   - repeat:
       sequence:
