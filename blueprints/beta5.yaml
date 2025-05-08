@@ -298,6 +298,22 @@ action:
         {% if trigger is none %}
           true
         {% elif initial_notification_sent and notification_time %}
-          {{ (now() - notification_time).total_seconds() > (cooldown * 60) }}
+          {% set elapsed = (now() - notification_time).total_seconds() %}
+          {% set cooldown_seconds = cooldown * 60 %}
+          {% set should_end = elapsed > cooldown_seconds %}
+          {{ should_end }}
+        {% else %}
+          false
         {% endif %}
+
+  - service: logbook.log
+    data:
+      name: "Frigate Debug - Cooldown Status"
+      message: >
+        Event: {{ review_full_event_id }}
+        Camera: {{ review_camera_id }}
+        Notification Time: {{ notification_time }}
+        Elapsed Seconds: {{ (now() - notification_time).total_seconds() if notification_time else 0 }}
+        Cooldown Seconds: {{ cooldown * 60 }}
+        Should End: {{ (now() - notification_time).total_seconds() > (cooldown * 60) if notification_time else false }}
 
