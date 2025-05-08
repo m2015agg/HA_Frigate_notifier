@@ -182,7 +182,7 @@ action:
                   false
                 {% else %}
                   {% set e = trigger.payload_json.after %}
-                  {{ e.id == review_full_event_id }}
+                  {{ e.id == review_full_event_id and e.camera == review_camera_id }}
                 {% endif %}
           timeout:
             minutes: "{{ timeout }}"
@@ -211,6 +211,9 @@ action:
             name: "Frigate Debug - Event Received"
             message: >
               Event: {{ review_full_event_id }}
+              Camera: {{ review_camera_id }}
+              Event Camera: {{ e.camera }}
+              Camera Match: {{ e.camera == review_camera_id }}
               Pending Loitering: {{ has_pending }}
               Has Clip: {{ has_clip }}
               Has Snapshot: {{ has_snapshot }}
