@@ -5,7 +5,11 @@ blueprint:
     Spawn a single loop on each new Frigate event for watched cameras.
     Only notify when an object is detected in a zone and remains there for the specified presence time.
     This prevents notifications for quick pass-throughs and only alerts for sustained presence.
-    # Version 1.3.0 (2024-05-07)
+    # Version 1.4.0 (2024-05-07)
+    # Updated: Modified notification behavior
+    # - Changed tap action to open thumbnail
+    # - Simplified notification actions
+    # - Improved notification interaction
     # Updated: Added event path handling
     # - Uses Frigate's event path for notifications
     # - Fallback to event ID if path missing
@@ -237,10 +241,10 @@ action:
                     tag: "{{ review_full_event_id }}"
                     title: "Frigate Detection"
                     image: "{{ base_url }}/api/frigate/notifications/{{ event_path }}/thumbnail.jpg"
-                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ event_path }}/clip.mp4"
+                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ event_path }}/thumbnail.jpg"
                     tap_action:
                       action: "URI"
-                      uri: "{{ base_url }}/api/frigate/notifications/{{ event_path }}/clip.mp4"
+                      uri: "{{ base_url }}/api/frigate/notifications/{{ event_path }}/thumbnail.jpg"
                     importance: "{{ 'low' if initial_notification_sent else 'high' }}"
                     priority: "{{ 'low' if initial_notification_sent else 'high' }}"
                     sound: "{{ 'none' if initial_notification_sent else 'default' }}"
