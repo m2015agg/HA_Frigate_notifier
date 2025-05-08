@@ -11,6 +11,12 @@ blueprint:
     # - Automation ends after cooldown completes
     # - Improved end conditions for better control
     # Updated: Added robust event checks and detailed debug logging
+    #
+    # Note: The following features were tested but rolled back:
+    # - Camera validation for snapshots (v1.2.0)
+    # - Event path handling (v1.3.0)
+    # - Modified notification behavior (v1.4.0)
+    # These features may be reimplemented in future versions after further testing.
 
   domain: automation
   input:
