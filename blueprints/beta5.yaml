@@ -38,13 +38,13 @@ blueprint:
   domain: automation
   input:
     camera:
-      name: Cameras
-      description: Select one or more cameras to monitor. Each camera's events will be processed independently.
+      name: Camera
+      description: Select a camera to monitor. Each camera should have its own automation instance.
       selector:
         entity:
           integration: frigate
           domain: camera
-          multiple: true
+          multiple: false
 
     notify_device:
       name: Mobile Device
@@ -178,10 +178,10 @@ action:
               topic: "{{ mqtt_event_topic }}"
               value_template: >-
                 {% if initial_notification_sent %}
-                  false
+                  true
                 {% else %}
                   {% set e = trigger.payload_json.after %}
-                  {% set matches = e.id == review_full_event_id and e.camera == review_camera_id %}
+                  {% set matches = e.id == review_full_event_id and e.camera == review_camera_id and e.camera in camera %}
                   {{ not matches }}
                 {% endif %}
           timeout:
