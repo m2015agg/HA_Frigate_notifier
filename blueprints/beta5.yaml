@@ -31,24 +31,20 @@ blueprint:
     #   * Rolled back due to notification reliability issues
     #   * May be reimplemented with single-camera focus
     #
-    # Usage: Create a separate automation for each camera to prevent cross-camera
-    # event interference. This ensures each camera has its own cooldown period
-    # and event handling. The single-camera approach helps avoid issues with:
-    # - Cross-camera event confusion
-    # - Inconsistent severity states
-    # - Different loitering states
-    # - Race conditions between cameras
+    # Usage: This automation supports monitoring multiple cameras simultaneously.
+    # Each camera's events are processed independently with their own cooldown periods.
+    # The automation includes robust event matching to prevent cross-camera confusion.
 
   domain: automation
   input:
     camera:
-      name: Camera
-      description: Select a single camera to monitor. Create a separate automation for each camera.
+      name: Cameras
+      description: Select one or more cameras to monitor. Each camera's events will be processed independently.
       selector:
         entity:
           integration: frigate
           domain: camera
-          multiple: false
+          multiple: true
 
     notify_device:
       name: Mobile Device
@@ -129,7 +125,7 @@ trigger:
   - platform: mqtt
     topic: !input mqtt_review_topic
     value_template: >
-      {{ trigger.payload_json.type == 'new' and trigger.payload_json.after.camera == camera }}
+      {{ trigger.payload_json.type == 'new' and trigger.payload_json.after.camera in camera }}
 
 # Variables used in the automation
 variables:
@@ -160,7 +156,8 @@ action:
       message: >
         Review Event: {{ review_full_event_id }}
         Camera: {{ review_camera_id }}
-        Single Camera Mode: Enabled
+        Watched Cameras: {{ camera }}
+        Multi-Camera Mode: Enabled
 
   - repeat:
       sequence:
