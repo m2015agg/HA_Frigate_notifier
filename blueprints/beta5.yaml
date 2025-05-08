@@ -171,7 +171,9 @@ action:
             name: "Frigate Debug - Waiting for Event"
             message: >
               Waiting for event ID: {{ review_full_event_id }}
+              Review Camera: {{ review_camera_id }}
               On topic: {{ mqtt_event_topic }}
+              Review Payload: {{ review_payload | to_json }}
 
         # 2) Block until we see the frigate/events message with the same ID
         - wait_for_trigger:
@@ -182,7 +184,8 @@ action:
                   false
                 {% else %}
                   {% set e = trigger.payload_json.after %}
-                  {{ e.id == review_full_event_id and e.camera == review_camera_id }}
+                  {% set matches = e.id == review_full_event_id and e.camera == review_camera_id %}
+                  {{ not matches }}
                 {% endif %}
           timeout:
             minutes: "{{ timeout }}"
@@ -210,10 +213,13 @@ action:
           data:
             name: "Frigate Debug - Event Received"
             message: >
-              Event: {{ review_full_event_id }}
-              Camera: {{ review_camera_id }}
+              Review Event: {{ review_full_event_id }}
+              Review Camera: {{ review_camera_id }}
+              Event ID: {{ e.id }}
               Event Camera: {{ e.camera }}
+              ID Match: {{ e.id == review_full_event_id }}
               Camera Match: {{ e.camera == review_camera_id }}
+              Event Payload: {{ wait.trigger.payload_json | to_json }}
               Pending Loitering: {{ has_pending }}
               Has Clip: {{ has_clip }}
               Has Snapshot: {{ has_snapshot }}
