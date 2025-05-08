@@ -5,7 +5,11 @@ blueprint:
     Spawn a single loop on each new Frigate event for watched cameras.
     Only notify when an object is detected in a zone and remains there for the specified presence time.
     This prevents notifications for quick pass-throughs and only alerts for sustained presence.
-    # Version 1.0.0 (2024-05-07)
+    # Version 1.1.0 (2024-05-07)
+    # Updated: Added cooldown period after notifications
+    # - Configurable cooldown time (0-30 minutes)
+    # - Automation ends after cooldown completes
+    # - Improved end conditions for better control
     # Updated: Added robust event checks and detailed debug logging
 
   domain: automation
@@ -169,7 +173,8 @@ action:
                  and has_severity
                  and has_clip
                  and has_snapshot
-                 and has_pending }}
+                 and has_pending 
+                 and has_zones }}
 
         # 4) Log what we've got
         - service: logbook.log
