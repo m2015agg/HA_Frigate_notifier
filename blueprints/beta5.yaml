@@ -248,8 +248,8 @@ action:
                   data:
                     tag: "{{ e.id }}_{{ now().timestamp() | int }}"
                     title: "Frigate Detection"
-                    image: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg""
-                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg""
+                    image: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
+                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
                     tap_action:
                       action: "URI"
                       uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
