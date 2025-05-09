@@ -181,8 +181,8 @@ action:
               topic: "{{ mqtt_event_topic }}"
               value_template: >-
                 {{ (trigger.payload_json.after.id == review_full_event_id 
-                   and trigger.payload_json.after.camera == review_camera_id 
-                   and trigger.payload_json.after.camera == camera) }}
+                    and trigger.payload_json.after.camera == review_camera_id 
+                    and trigger.payload_json.after.camera == camera) }}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
@@ -198,11 +198,11 @@ action:
             has_severity: "{{ e.max_severity == 'alert' }}"
             should_notify: >-
               {{ (not initial_notification_sent)
-                 and has_severity
-                 and has_clip
-                 and has_snapshot
-                 and not has_pending 
-                 and has_zones }}
+                  and has_severity
+                  and has_clip
+                  and has_snapshot
+                  and not has_pending 
+                  and has_zones }}
 
         # 4) Log what we've got
         - service: logbook.log
