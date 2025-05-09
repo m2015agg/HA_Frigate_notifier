@@ -46,14 +46,12 @@ blueprint:
           domain: camera
           multiple: false
 
-    notify_device:
-      name: Mobile Device
-      description: Select one or more devices that run the official Home Assistant app to receive notifications.
-      default: false
+    notify_service:
+      name: Notify Service or Group
+      description: Enter a `notify.` service (e.g., `notify.mobile_app_johns_iphone`, `notify.family_notifications`)
+      default: "all_notify_devices"
       selector:
-        device:
-          integration: mobile_app
-          multiple: true
+        text: {}
 
     mqtt_review_topic:
       name: Review Topic
@@ -137,7 +135,7 @@ variables:
 
   # Get input variables
   camera: !input camera
-  notify_device: !input notify_device
+  notify_service: !input notify_service
   base_url: !input base_url
   timeout: !input timeout
   cooldown: !input cooldown
@@ -241,9 +239,7 @@ action:
                       - Is active: {{ is_active }}
                       Final decision: {{ should_notify }}
 
-                - service: mobile_app.notify
-                  target:
-                    device_id: !input notify_device
+                - service: "{{ notify_service }}"
                   data:
                     message: >-
                       A {{ e.label | title }} was detected on {{ review_camera_id }}.
