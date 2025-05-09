@@ -133,6 +133,7 @@ variables:
   review_payload: "{{ trigger.payload_json }}"
   review_full_event_id: "{{ review_payload.after.id }}"
   review_camera_id: "{{ review_payload.after.camera }}"
+  automation_name: "{{ this.name | lower | replace(' ', '_') }}"
 
   # Get input variables
   camera: !input camera
@@ -267,7 +268,10 @@ action:
                       - label: "View Clip"
                         title: "View Clip"
                         action: "URI"
-                        uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/{{camera}}/master.m3u8"
+                        uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                      - label: "Mute 30 min"
+                        title: "Mute 30 min"
+                        action: "message_mute{{ automation_name }}_alert"
 
                 - variables:
                     initial_notification_sent: true
