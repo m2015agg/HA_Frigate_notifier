@@ -54,6 +54,7 @@ blueprint:
         device:
           filter:
             integration: mobile_app
+            multiple: true
 
     mqtt_review_topic:
       name: Review Topic
