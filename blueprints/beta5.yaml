@@ -246,7 +246,7 @@ action:
                   message: >-
                     A {{ e.label | title }} was detected on {{ review_camera_id }}.
                   data:
-                    tag: "{{ e.id }}"
+                    tag: "{{ e.id }}_{{ now().timestamp() | int }}"
                     title: "Frigate Detection"
                     image: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/thumbnail.jpg"
                     clickAction: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
