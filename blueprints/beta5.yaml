@@ -187,7 +187,7 @@ action:
         # 3) Now pull the real event fields into local vars
         - variables:
             e: "{{ wait.trigger.payload_json.after }}"
-            has_pending: "{{ e.pending_loitering | default(false) }}"
+            has_pending: "{{ e.pending_loitering | default(true) }}"
             has_zones: "{{ (e.entered_zones | default([])) | length > 0 }}"
             has_clip: "{{ e.has_clip | default(false) }}"
             has_snapshot: "{{ e.has_snapshot | default(false) }}"
@@ -198,7 +198,7 @@ action:
                  and has_severity
                  and has_clip
                  and has_snapshot
-                 and has_pending 
+                 and not has_pending 
                  and has_zones }}
 
         # 4) Log what we've got
@@ -248,8 +248,8 @@ action:
                   data:
                     tag: "{{ e.id }}_{{ now().timestamp() | int }}"
                     title: "Frigate Detection"
-                    image: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/thumbnail.jpg"
-                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                    image: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg""
+                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg""
                     tap_action:
                       action: "URI"
                       uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
@@ -263,11 +263,11 @@ action:
                       - label: "Open Frigate Dashboard"
                         title: "Open Frigate Dashboard"
                         action: "URI"
-                        uri: "{{ base_url }}/api/hassio_ingress/frigate"
+                        uri: "{{ base_url }}/ccab4aaf_frigate-fa/dashboard"
                       - label: "View Clip"
                         title: "View Clip"
                         action: "URI"
-                        uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                        uri: "{{base_url}}/api/frigate/notifications/{{id}}/{{camera}}/master.m3u8"
 
                 - variables:
                     initial_notification_sent: true
@@ -309,3 +309,9 @@ action:
         Cooldown Seconds: {{ cooldown * 60 }}
         Should End: {{ (now() - notification_time).total_seconds() > (cooldown * 60) if notification_time else false }}
 
+
+
+
+
+
+  
