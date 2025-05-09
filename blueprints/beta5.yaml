@@ -255,7 +255,7 @@ action:
                     sound: "default"
                     critical: "{{ critical_alert }}"
                     when: "{{ e.start_time|int }}"
-                    entity_id: "camera.{{ review_camera_id | replace('-', '_') | lower }}"
+                    entity_id: "camera.{{ e.id | replace('-', '_') | lower }}"
                     actions:
                       - label: "Open Frigate Dashboard"
                         title: "Open Frigate Dashboard"
@@ -267,7 +267,7 @@ action:
                         uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
                       - label: "Mute 30 min"
                         title: "Mute 30 min"
-                        action: "script.message_mute_{{ automation_name }}_alert"
+                        action: "script.message_mute_{{ automation_name }}"
 
                 - variables:
                     initial_notification_sent: true
