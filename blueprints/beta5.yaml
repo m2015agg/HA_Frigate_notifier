@@ -244,11 +244,7 @@ action:
                   domain: mobile_app
                   type: notify
                   message: >-
-                    {% if not initial_notification_sent %}
-                      A {{ e.label | title }} was detected on {{ review_camera_id }}.
-                    {% else %}
-                      Additional object(s) detected: {{ new_objects | join(", ") | title }} on {{ review_camera_id }}.
-                    {% endif %}
+                    A {{ e.label | title }} was detected on {{ review_camera_id }}.
                   data:
                     tag: "{{ review_full_event_id }}"
                     title: "Frigate Detection"
@@ -257,9 +253,9 @@ action:
                     tap_action:
                       action: "URI"
                       uri: "{{ base_url }}/api/frigate/notifications/{{ review_full_event_id }}/clip.mp4"
-                    importance: "{{ 'low' if initial_notification_sent else 'high' }}"
-                    priority: "{{ 'low' if initial_notification_sent else 'high' }}"
-                    sound: "{{ 'none' if initial_notification_sent else 'default' }}"
+                    importance: "high"
+                    priority: "high"
+                    sound: "default"
                     critical: "{{ critical_alert }}"
                     when: "{{ e.start_time|int }}"
                     entity_id: "camera.{{ review_camera_id | replace('-','_') | lower }}"
