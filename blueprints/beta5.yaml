@@ -246,13 +246,13 @@ action:
                   message: >-
                     A {{ e.label | title }} was detected on {{ review_camera_id }}.
                   data:
-                    tag: "{{ review_full_event_id }}"
+                    tag: "{{ e.id }}"
                     title: "Frigate Detection"
-                    image: "{{ base_url }}/api/frigate/notifications/{{ review_full_event_id }}/thumbnail.jpg"
-                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ review_full_event_id }}/clip.mp4"
+                    image: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/thumbnail.jpg"
+                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
                     tap_action:
                       action: "URI"
-                      uri: "{{ base_url }}/api/frigate/notifications/{{ review_full_event_id }}/clip.mp4"
+                      uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
                     importance: "high"
                     priority: "high"
                     sound: "default"
@@ -267,7 +267,7 @@ action:
                       - label: "View Clip"
                         title: "View Clip"
                         action: "URI"
-                        uri: "{{ base_url }}/api/frigate/notifications/{{ review_full_event_id }}/clip.mp4"
+                        uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
 
                 - variables:
                     initial_notification_sent: true
