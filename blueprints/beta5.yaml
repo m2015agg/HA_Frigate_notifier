@@ -139,7 +139,7 @@ variables:
 
   # Get input variables
   camera: !input camera
-  notify_service: !input notify_service
+  notify_group: !input notify_group
   base_url: !input base_url
   timeout: !input timeout
   cooldown: !input cooldown
