@@ -48,13 +48,12 @@ blueprint:
 
     notify_device:
       name: Mobile Device
-      description: Select a device that runs the official Home Assistant app to receive notifications. If you wish to notify a group of devices and/or Android/Fire TV use the field below to override this selection. This will be ignored in that case but is still required.
+      description: Select one or more devices that run the official Home Assistant app to receive notifications.
       default: false
       selector:
         device:
-          filter:
-            integration: mobile_app
-            multiple: true
+          integration: mobile_app
+          multiple: true
 
     mqtt_review_topic:
       name: Review Topic
