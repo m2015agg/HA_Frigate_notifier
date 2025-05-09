@@ -241,16 +241,16 @@ action:
                       - Is active: {{ is_active }}
                       Final decision: {{ should_notify }}
 
-                - device_id: !input notify_device
-                  domain: mobile_app
-                  type: notify
-                  message: >-
-                    A {{ e.label | title }} was detected on {{ review_camera_id }}.
+                - service: mobile_app.notify
+                  target:
+                    device_id: !input notify_device
                   data:
+                    message: >-
+                      A {{ e.label | title }} was detected on {{ review_camera_id }}.
                     tag: "{{ e.id }}_{{ now().timestamp() | int }}"
                     title: "Frigate Detection"
                     image: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
-                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
+                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
                     tap_action:
                       action: "URI"
                       uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
@@ -259,7 +259,7 @@ action:
                     sound: "default"
                     critical: "{{ critical_alert }}"
                     when: "{{ e.start_time|int }}"
-                    entity_id: "camera.{{ review_camera_id | replace('-','_') | lower }}"
+                    entity_id: "camera.{{ review_camera_id | replace('-', '_') | lower }}"
                     actions:
                       - label: "Open Frigate Dashboard"
                         title: "Open Frigate Dashboard"
@@ -271,7 +271,7 @@ action:
                         uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
                       - label: "Mute 30 min"
                         title: "Mute 30 min"
-                        action: "message_mute{{ automation_name }}_alert"
+                        action: "script.message_mute_{{ automation_name }}_alert"
 
                 - variables:
                     initial_notification_sent: true
