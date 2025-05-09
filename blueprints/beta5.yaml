@@ -180,9 +180,9 @@ action:
             - platform: mqtt
               topic: "{{ mqtt_event_topic }}"
               value_template: >-
-                {{ (trigger.payload_json.after.id == review_full_event_id 
-                    and trigger.payload_json.after.camera == review_camera_id 
-                    and trigger.payload_json.after.camera == camera) }}
+                {{ (wait.trigger.payload_json.after.id == review_full_event_id 
+                    and wait.trigger.payload_json.after.camera == review_camera_id 
+                    and wait.trigger.payload_json.after.camera == camera)| string }}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
