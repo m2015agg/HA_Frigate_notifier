@@ -46,12 +46,11 @@ blueprint:
           domain: camera
           multiple: false
 
-    notify_service:
+    notify_group:
       name: Notify Service or Group
       description: Enter a `notify.` service (e.g., `notify.mobile_app_johns_iphone`, `notify.family_notifications`)
       default: "all_notify_devices"
-      selector:
-        text: {}
+
 
     mqtt_review_topic:
       name: Review Topic
@@ -239,35 +238,50 @@ action:
                       - Is active: {{ is_active }}
                       Final decision: {{ should_notify }}
 
-                - service: "{{ notify_service }}"
+                - action: "notify.{{ notify_group }}"
                   data:
+                    title: "Frigate Detection"
                     message: >-
                       A {{ e.label | title }} was detected on {{ review_camera_id }}.
-                    tag: "{{ e.id }}_{{ now().timestamp() | int }}"
-                    title: "Frigate Detection"
-                    image: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
-                    clickAction: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
-                    tap_action:
-                      action: "URI"
-                      uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
-                    importance: "high"
-                    priority: "high"
-                    sound: "default"
-                    critical: "{{ critical_alert }}"
-                    when: "{{ e.start_time|int }}"
-                    entity_id: "camera.{{ e.id | replace('-', '_') | lower }}"
-                    actions:
-                      - label: "Open Frigate Dashboard"
-                        title: "Open Frigate Dashboard"
-                        action: "URI"
-                        uri: "{{ base_url }}/ccab4aaf_frigate-fa/dashboard"
-                      - label: "View Clip"
-                        title: "View Clip"
-                        action: "URI"
-                        uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
-                      - label: "Mute 30 min"
-                        title: "Mute 30 min"
-                        action: "script.message_mute_{{ automation_name }}"
+                    data:
+                      tag: "{{ e.id }}_{{ now().timestamp() | int }}"
+                      group: "frigate"
+                      color: "red"
+                      # Android Specific
+                      subject: "Frigate Detection"
+                      image: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
+                      video: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                      clickAction: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                      ttl: 0
+                      priority: high
+                      notification_icon: "mdi:cctv"
+                      sticky: false
+                      channel: "{{ 'alarm_stream' if critical_alert else 'default' }}"
+                      # iOS Specific
+                      url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                      attachment:
+                        url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                        content-type: "mp4"
+                      push:
+                        sound:
+                          name: "default"
+                          volume: 1
+                          critical: "{{ critical_alert }}"
+                      entity_id: "camera.{{ e.id | replace('-', '_') | lower }}"
+                      # Actions
+                      actions:
+                        - action: URI
+                          title: "Open Frigate Dashboard"
+                          uri: "{{ base_url }}/ccab4aaf_frigate-fa/dashboard"
+                          icon: "mdi:view-dashboard"
+                        - action: URI
+                          title: "View Clip"
+                          uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                          icon: "mdi:video"
+                        - action: "script.message_mute_{{ automation_name }}"
+                          title: "Mute 30 min"
+                          icon: "mdi:volume-off"
+                          destructive: true
 
                 - variables:
                     initial_notification_sent: true
