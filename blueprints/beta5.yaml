@@ -267,7 +267,7 @@ action:
                       - label: "View Clip"
                         title: "View Clip"
                         action: "URI"
-                        uri: "{{base_url}}/api/frigate/notifications/{{id}}/{{camera}}/master.m3u8"
+                        uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/{{camera}}/master.m3u8"
 
                 - variables:
                     initial_notification_sent: true
