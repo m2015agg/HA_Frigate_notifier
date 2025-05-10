@@ -211,9 +211,9 @@ action:
                   and e.camera == review_camera_id }}
 
         # 4) Log what we've got
-        - service: logbook.log
+        - service: logger.log
           data:
-            name: "Frigate Debug - Event Received"
+            level: trace
             message: >
               Review Event: {{ review_full_event_id }}
               Review Camera: {{ review_camera_id }}
