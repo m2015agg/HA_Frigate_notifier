@@ -271,8 +271,8 @@ action:
                       # iOS Specific
                       url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/master.m3u8"
                       attachment:
-                        url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/master.m3u8"
-                        content-type: "mp4"
+                        url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
+                        content-type: "jpeg"
                       push:
                         sound:
                           name: "default"
