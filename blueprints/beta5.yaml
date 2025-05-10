@@ -5,7 +5,11 @@ blueprint:
     Spawn a single loop on each new Frigate event for watched cameras. With multiple devices
     Only notify when an object is detected in a zone and remains there for the specified presence time.
     This prevents notifications for quick pass-throughs and only alerts for sustained presence.
-    # Version 1.5.0 (2024-05-07)
+    # Version 1.5.1 (2024-05-09)
+    # Updated: Added robust event validation
+    # - Added event ID validation to ensure correct event processing
+    # - Added camera name validation to prevent cross-camera confusion
+    # - Improved notification conditions for better accuracy
     # Updated: Improved notification format
     # - Added platform-specific parameters for Android and iOS
     # - Updated action formatting with icons
