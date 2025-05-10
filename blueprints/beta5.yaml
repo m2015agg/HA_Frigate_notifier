@@ -182,7 +182,7 @@ action:
               value_template: >-
                 {{ (wait.trigger.payload_json.after.id == review_full_event_id 
                     and wait.trigger.payload_json.after.camera == review_camera_id 
-                    and wait.trigger.payload_json.after.camera == camera)| string }}
+                    and wait.trigger.payload_json.after.camera == camera) }}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
@@ -202,7 +202,9 @@ action:
                   and has_clip
                   and has_snapshot
                   and not has_pending 
-                  and has_zones }}
+                  and has_zones
+                  and e.id == review_full_event_id
+                  and e.camera == review_camera_id }}
 
         # 4) Log what we've got
         - service: logbook.log
