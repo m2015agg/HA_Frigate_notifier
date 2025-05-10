@@ -278,7 +278,7 @@ action:
                           name: "default"
                           volume: 1
                           critical: "{{ critical_alert }}"
-                      entity_id: "camera.{{ e.id | replace('-', '_') | lower }}"
+                      entity_id: "camera.{{ e.camera | replace('-', '_') | lower }}"
                       # Actions
                       actions:
                         - action: URI
