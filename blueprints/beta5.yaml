@@ -203,7 +203,7 @@ action:
                   and has_severity
                   and has_clip
                   and has_snapshot
-                  and not has_pending 
+                  and has_pending 
                   and has_zones
                   and e.id == detection_id }}
 
