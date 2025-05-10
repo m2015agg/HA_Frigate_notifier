@@ -139,6 +139,7 @@ variables:
   review_payload: "{{ trigger.payload_json }}"
   review_full_event_id: "{{ review_payload.after.id }}"
   review_camera_id: "{{ review_payload.after.camera }}"
+  detection_id: "{{ review_payload.after.data.detections[0] }}"
   automation_name: "{{ this.name | lower | replace(' ', '_') }}"
 
   # Get input variables
@@ -207,13 +208,12 @@ action:
                   and has_snapshot
                   and not has_pending 
                   and has_zones
-                  and e.id == review_full_event_id
-                  and e.camera == review_camera_id }}
+                  and e.id == detection_id }}
 
         # 4) Log what we've got
-        - service: logger.log
+        - service: logbook.log
           data:
-            level: trace
+            name: "Frigate Debug - Event Received"
             message: >
               Review Event: {{ review_full_event_id }}
               Review Camera: {{ review_camera_id }}
