@@ -227,6 +227,9 @@ action:
               Has Snapshot: {{ has_snapshot }}
               Severity OK: {{ has_severity }}
               Should Notify: {{ should_notify }}
+              Validation:
+              - Event ID Match: {{ e.id == review_full_event_id }}
+              - Camera Match: {{ e.camera == review_camera_id }}
 
         # Check if we should send notification
         - choose:
