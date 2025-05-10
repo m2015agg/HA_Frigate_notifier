@@ -269,7 +269,7 @@ action:
                       sticky: false
                       channel: "{{ 'alarm_stream' if critical_alert else 'default' }}"
                       # iOS Specific
-                      url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/master.m3u8"
+                      url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
                       attachment:
                         url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
                         content-type: "jpeg"
