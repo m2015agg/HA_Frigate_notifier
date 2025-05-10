@@ -192,7 +192,7 @@ action:
         # 3) Now pull the real event fields into local vars
         - variables:
             e: "{{ wait.trigger.payload_json.after }}"
-            has_pending: "{{ e.pending_loitering | default(true) }}"
+            has_pending: "{{ e.pending_loitering | default(false) }}"
             has_zones: "{{ (e.entered_zones | default([])) | length > 0 }}"
             has_clip: "{{ e.has_clip | default(false) }}"
             has_snapshot: "{{ e.has_snapshot | default(false) }}"
