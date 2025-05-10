@@ -154,8 +154,7 @@ variables:
   initial_notification_sent: false
   notification_time: null
 
-  # Event data from frigate/events
-  e: "{{ trigger.payload_json.after }}"
+
 
 action:
   - service: logbook.log
@@ -185,9 +184,7 @@ action:
             - platform: mqtt
               topic: "{{ mqtt_event_topic }}"
               value_template: >-
-                {{ (wait.trigger.payload_json.after.id == review_full_event_id 
-                    and wait.trigger.payload_json.after.camera == review_camera_id 
-                    and wait.trigger.payload_json.after.camera == camera) }}
+                {{ wait.trigger.payload_json.after.id == detection_id }}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
@@ -256,7 +253,7 @@ action:
                   data:
                     title: "Frigate Detection"
                     message: >-
-                      A {{ e.label | title }} was detected on {{ review_camera_id }}.
+                      A {{ e.label | title }} was detected on {{ e.camera }}.
                     data:
                       tag: "{{ e.id }}_{{ now().timestamp() | int }}"
                       group: "frigate"
@@ -265,16 +262,16 @@ action:
                       subject: "Frigate Detection"
                       image: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
                       video: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
-                      clickAction: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                      clickAction: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
                       ttl: 0
                       priority: high
                       notification_icon: "mdi:cctv"
                       sticky: false
                       channel: "{{ 'alarm_stream' if critical_alert else 'default' }}"
                       # iOS Specific
-                      url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                      url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/master.m3u8"
                       attachment:
-                        url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                        url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/master.m3u8"
                         content-type: "mp4"
                       push:
                         sound:
@@ -290,7 +287,7 @@ action:
                           icon: "mdi:view-dashboard"
                         - action: URI
                           title: "View Clip"
-                          uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                          uri: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/master.m3u8"
                           icon: "mdi:video"
                         - action: "script.message_mute_{{ automation_name }}"
                           title: "Mute 30 min"
