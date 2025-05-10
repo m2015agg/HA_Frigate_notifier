@@ -205,7 +205,7 @@ action:
                   and has_snapshot
                   and has_pending 
                   and has_zones
-                  and e.id == detection_id }}
+                  and e.camera == trigger.payload_json.after.camera }}
 
         # 4) Log what we've got
         - service: logbook.log
