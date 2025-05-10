@@ -140,7 +140,7 @@ variables:
   review_full_event_id: "{{ review_payload.after.id }}"
   review_camera_id: "{{ review_payload.after.camera }}"
   detection_id: "{{ review_payload.after.data.detections[0] }}"
-  automation_name: "{{ this.name | lower | replace(' ', '_') }}"
+  automation_name: "{{ this.entity_id }}"
 
   # Get input variables
   camera: !input camera
