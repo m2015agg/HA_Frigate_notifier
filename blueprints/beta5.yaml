@@ -199,13 +199,18 @@ action:
             is_active: "{{ e.active | default(false) }}"
             has_severity: "{{ e.max_severity == 'alert' }}"
             should_notify: >-
-              {{ (not initial_notification_sent)
+              {% set base_conditions = (not initial_notification_sent)
                   and has_severity
                   and has_clip
                   and has_snapshot
                   and has_pending 
                   and has_zones
-                  and e.camera == trigger.payload_json.after.camera }}
+                  and e.camera == trigger.payload_json.after.camera %}
+              {% if 'street' in e.entered_zones %}
+                {{ base_conditions and e.label == 'car' }}
+              {% else %}
+                {{ base_conditions }}
+              {% endif %}
 
         # 4) Log what we've got
         - service: logbook.log
