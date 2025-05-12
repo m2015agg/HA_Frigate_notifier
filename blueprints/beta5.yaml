@@ -152,7 +152,7 @@ variables:
   critical_alert: !input critical_alert
   mqtt_event_topic: !input mqtt_event_topic
   initial_notification_sent: false
-  notification_time: null
+  notification_time: "{{ now() }}"
 
 
 
@@ -296,7 +296,7 @@ action:
 
                 - variables:
                     initial_notification_sent: true
-                    notification_time: "{{ now() }}"
+                    notification_time: "{{ now().timestamp() }}"
 
                 - choose:
                     - conditions: "{{ enable_homekit }}"
@@ -315,7 +315,7 @@ action:
         {% if trigger is none %}
           true
         {% elif initial_notification_sent and notification_time %}
-          {% set elapsed = (now() - notification_time).total_seconds() %}
+          {% set elapsed = now().timestamp() - notification_time %}
           {% set cooldown_seconds = cooldown * 60 %}
           {% set should_end = elapsed > cooldown_seconds %}
           {{ should_end }}
