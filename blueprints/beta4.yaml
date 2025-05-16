@@ -214,7 +214,7 @@ action:
                     tap_action:
                       action: "URI"
                       uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/snapshot.jpeg"
-                     # uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
+                      # uri: "{{ base_url }}/api/frigate/notifications/{{ full_event_id }}/clip.mp4"
                       
                     importance: "{{ 'low' if initial_notification_sent else 'high' }}"
                     priority: "{{ 'low' if initial_notification_sent else 'high' }}"
