@@ -125,14 +125,6 @@ blueprint:
 # Run automation in selected mode
 mode: !input automation_mode
 
-# Trigger on MQTT updates from Frigate
-# This trigger listens to frigate/reviews for new events
-trigger:
-  - platform: mqtt
-    topic: !input mqtt_review_topic
-    value_template: >
-      {{ trigger.payload_json.type == 'new' and trigger.payload_json.after.camera == camera }}
-
 # Variables used in the automation
 variables:
   # Extract data from the MQTT payload frigate/reviews
@@ -144,6 +136,7 @@ variables:
 
   # Get input variables
   camera: !input camera
+  watched_camera: "{{ camera.split('.')[1] }}"
   notify_group: !input notify_group
   base_url: !input base_url
   timeout: !input timeout
@@ -153,7 +146,14 @@ variables:
   mqtt_event_topic: !input mqtt_event_topic
   initial_notification_sent: false
   notification_time: "{{ now() }}"
+# Trigger on MQTT updates from Frigate
 
+# This trigger listens to frigate/reviews for new events
+trigger:
+  - platform: mqtt
+    topic: !input mqtt_review_topic
+    value_template: >
+      {{ trigger.payload_json.type == 'new' and trigger.payload_json.after.camera == watched_camera }}
 
 
 action:
@@ -184,7 +184,8 @@ action:
             - platform: mqtt
               topic: "{{ mqtt_event_topic }}"
               value_template: >-
-                {{ wait.trigger.payload_json.after.id == detection_id }}
+                {{ wait.trigger.payload_json.after.id | default('') == detection_id
+                   and wait.trigger.payload_json.after.camera | default('') == watched_camera }}
           timeout:
             minutes: "{{ timeout }}"
           continue_on_timeout: false
@@ -207,7 +208,7 @@ action:
                   and has_snapshot
                   and has_pending 
                   and has_zones
-                  and e.camera == trigger.payload_json.after.camera %}
+                  and e.camera == watched_camera %}
               {% if in_street_zone %}
                 {{ base_conditions and is_car }}
               {% else %}
@@ -268,7 +269,7 @@ action:
                       # Android Specific
                       subject: "Frigate Detection"
                       image: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
-                      video: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                      # video: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
                       clickAction: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
                       ttl: 0
                       priority: high
