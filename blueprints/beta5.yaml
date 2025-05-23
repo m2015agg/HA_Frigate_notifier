@@ -198,6 +198,8 @@ action:
             has_snapshot: "{{ e.has_snapshot | default(false) }}"
             is_active: "{{ e.active | default(false) }}"
             has_severity: "{{ e.max_severity == 'alert' }}"
+            in_street_zone: "{{ 'street' in e.entered_zones | default([]) }}"
+            is_car: "{{ e.label == 'car' }}"
             should_notify: >-
               {% set base_conditions = (not initial_notification_sent)
                   and has_severity
@@ -206,8 +208,8 @@ action:
                   and has_pending 
                   and has_zones
                   and e.camera == trigger.payload_json.after.camera %}
-              {% if 'street' in e.entered_zones %}
-                {{ base_conditions and e.label == 'car' }}
+              {% if in_street_zone %}
+                {{ base_conditions and is_car }}
               {% else %}
                 {{ base_conditions }}
               {% endif %}
@@ -274,7 +276,7 @@ action:
                       sticky: false
                       channel: "{{ 'alarm_stream' if critical_alert else 'default' }}"
                       # iOS Specific
-                      url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/clip.mp4"
+                      url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
                       attachment:
                         url: "{{ base_url }}/api/frigate/notifications/{{ e.id }}/snapshot.jpg"
                         content-type: "jpeg"
